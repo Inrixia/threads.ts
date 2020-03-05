@@ -1,0 +1,14 @@
+# General (Windows)
+Thumbs.db
+desktop.ini
+
+# General (MacOS)
+.DS_Store
+._*
+
+# VSCode Directory
+.vscode/
+.vs/
+
+# Dependency directories
+node_modules/
