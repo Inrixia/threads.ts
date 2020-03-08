@@ -5,5 +5,5 @@ const helloWorld = async () => "Hello World"
 thisThread.helloWorld = helloWorld
 
 ;(async () => {
-	console.log(await thisThread.helloWorldParent().catch(console.log))
+	// console.log(await thisThread.helloWorldParent().catch(console.log))
 })()
