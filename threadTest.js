@@ -1,4 +1,4 @@
-const Thread = require('./lib/threads/Thread.js')
+const Thread = require('./lib/threads/Thread.js').Parent
 
 const helloWorldParent = async () => "Hello World Parent"
 
