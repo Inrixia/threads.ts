@@ -5,11 +5,7 @@ const helloWorldParent = async () => "Hello World Parent"
 const childThread = new Thread('./childThreadTest.js')
 
 ;(async () => {
-	const promise = childThread.helloWorld()
-	//console.log(childThread)
-	console.log(promise)
-	console.log(await promise)
-	console.log(promise)
+	console.log(await childThread.helloWorld().catch(console.log))
 })()
 
-childThread.exports.helloWorldParent = helloWorldParent
+childThread.helloWorldParent = helloWorldParent
