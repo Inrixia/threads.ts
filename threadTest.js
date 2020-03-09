@@ -1,11 +1,10 @@
-const Thread = require('./lib/threads/Thread.js').DistributedParent
+const Thread = require('./lib/threads/Thread.js').Parent
 
-const helloWorldParent = async () => "Hello World Parent"
-
-const childThread = new Thread('./childThreadTest.js')
 
 ;(async () => {
-	console.log(await childThread.helloWorld().catch(console.log))
+	const helloWorldThread = new Thread('./helloWorld.js')
+	const logThings = new Thread('./logThings.js')
+	setTimeout(() => {
+		// logThings.logThings('helo WORLD')
+	}, 1000)
 })()
-
-childThread.helloWorldParent = helloWorldParent
