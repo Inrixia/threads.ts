@@ -5,4 +5,4 @@ const logThings = async things => {
 	return 'magical'
 }
 
-thisThread.logThings = logThings
+thisThread.exports.logThings = logThings
