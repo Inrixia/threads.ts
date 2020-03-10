@@ -1,12 +1,12 @@
-const thisThread = require('./lib/threads/Thread.js').Child
+const thisThread = require('./lib/Thread.js').Child
 
 const helloWorld = async () => "Hello World"
 
-thisThread.exports.helloWorld = helloWorld
+module.exports = { helloWorld }
 
-;(async () => {
-	await thisThread.require('logThings.js')
-	await thisThread.threads['logThings.js'].logThings('SUPRISE')
-	// await thisThread.threads['logThings.js'].logThings('SUNSDF')
-	// await thisThread.threads['logThings.js'].logThings('MAGIC')
-})()
+// ;(async () => {
+// 	await thisThread.require('logThings.js')
+// 	await thisThread.threads['logThings.js'].logThings('SUPRISE')
+// 	// await thisThread.threads['logThings.js'].logThings('SUNSDF')
+// 	// await thisThread.threads['logThings.js'].logThings('MAGIC')
+// })()

@@ -1,4 +1,4 @@
-const thisThread = require('./lib/threads/Thread.js').Child
+const thisThread = require('./lib/Thread.js').Child
 
 const logThings = async things => {
 	console.log(things)
