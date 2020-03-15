@@ -1,12 +1,9 @@
-const thisThread = require('./lib/Thread.js').Child
+const thread = require('./lib/Thread.js').Child
 
-const helloWorld = async () => "Hello World"
+const helloWorld = async () => {
+	console.log('wait require')
+	await thread.require('./logThings.js')
+	return `Hello World ${await thread.threads['./logThings.js'].doubleIt(1)}`
+}
 
 module.exports = { helloWorld }
-
-// ;(async () => {
-// 	await thisThread.require('logThings.js')
-// 	await thisThread.threads['logThings.js'].logThings('SUPRISE')
-// 	// await thisThread.threads['logThings.js'].logThings('SUNSDF')
-// 	// await thisThread.threads['logThings.js'].logThings('MAGIC')
-// })()
