@@ -1,5 +1,7 @@
 const Child = require('./lib/Thread.js').Child
 
+console.log(Child.data)
+
 const helloWorld = async () => {
 	await Child.require('./logThings.js')
 	console.log(await Child.test())
