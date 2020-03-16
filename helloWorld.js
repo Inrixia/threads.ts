@@ -1,13 +1,9 @@
-const { Parent, Child } = require('./lib/Thread.js')
-
-const otherThread = new Parent('./logThings.js')
+const Child = require('./lib/Thread.js').Child
 
 const helloWorld = async () => {
+	await Child.require('./logThings.js')
 	console.log(await Child.test())
-	// return 'Hello Parent'
-	return await otherThread.doubleIt(1)
-	// await thread.require('./logThings.js')
-	// return `Hello World ${await thread.threads['./logThings.js'].doubleIt(1)}`
+	return `Hello World ${await Child.threads['./logThings.js'].doubleIt(1)}`
 }
 
 module.exports = { helloWorld }
