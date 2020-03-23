@@ -1,3 +1,8 @@
 const Child = require('./lib/Thread.js').Child
 
-module.exports.doubleIt = async num => num*2
+const doubleIt = async num => {
+	console.log('called')
+	return num*2
+}
+
+module.exports = { doubleIt }
