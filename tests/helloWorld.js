@@ -1,4 +1,4 @@
-const Child = require('./lib/Thread.js').Child
+const Child = require('../lib/Thread.js').Child
 
 const helloWorld = async () => {
 	console.log('child requires another child')

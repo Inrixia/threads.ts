@@ -1,4 +1,4 @@
-const { Parent, DistributedParent } = require('./lib/Thread.js')
+const { Parent, DistributedParent } = require('../lib/Thread.js')
 
 
 ;(async () => {
