@@ -6,8 +6,9 @@ const childPath = path.join(__dirname, './lib/child.js')
 const smolPath = path.join(__dirname, './lib/smol.js')
 
 const child = new Parent(childPath)
-const smol = new Parent(smolPath)
+// const smol = new Parent(smolPath)
 
 ;(async () => {
-	console.log(await child.getSmol(1))
+	// console.log(await child.smol(1))
+	console.log(await child.deepSmol(2))
 })()
