@@ -2,7 +2,7 @@
   "name": "threads",
   "version": "1.0.0",
   "description": "",
-  "main": "threadTest.js",
+  "main": "index.js",
   "directories": {
     "lib": "lib"
   },
@@ -18,5 +18,8 @@
   "bugs": {
     "url": "https://github.com/Inrixia/threads/issues"
   },
-  "homepage": "https://github.com/Inrixia/threads#readme"
+  "homepage": "https://github.com/Inrixia/threads#readme",
+  "devDependencies": {
+    "jest": "^26.1.0"
+  }
 }
