@@ -1,0 +1,1 @@
+module.exports.smol = s => s+" smol"
