@@ -1,1 +1,1 @@
-module.exports.smol = s => s+" smol"
+module.exports.smol = s => s+1
