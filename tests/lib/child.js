@@ -13,7 +13,7 @@ const return1 = async () => 1
 
 
 const smol = async s => {
-	const smol = await module.parent.thread.require('smol')
+	const smol = await module.thread.require('smol')
 	return smol.smol(s)
 }
 
@@ -22,9 +22,4 @@ const deepSmol = async s => {
 	return subChild.smol(s)
 }
 
-const smolRequire = async s => {
-	const smol = await module.parent.thread.require('smol')
-	return smol.smol(s)
-}
-
-module.exports = { add1, add1Deep, return1, smol, deepSmol, smolRequire }
+module.exports = { add1, add1Deep, return1, smol, deepSmol }
