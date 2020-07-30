@@ -1,7 +1,7 @@
 const path = require('path')
 const { Parent } = require('../../index.js')
 
-
+module.parent.thread.on('eventFromParent', (...args) => module.parent.thread.emit('eventFromChild', ...args))
 
 const add1 = async num => num+1
 
@@ -13,7 +13,7 @@ const return1 = async () => 1
 
 
 const smol = async s => {
-	const smol = await module.thread.require('smol')
+	const smol = await module.parent.thread.require('smol')
 	return smol.smol(s)
 }
 
