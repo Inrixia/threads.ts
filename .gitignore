@@ -12,6 +12,3 @@ desktop.ini
 
 # Dependency directories
 node_modules/
-
-#js
-test.js
