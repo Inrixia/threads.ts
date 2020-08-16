@@ -1,10 +1,11 @@
 {
-  "name": "threads",
+  "name": "@inrixia/threads",
   "version": "1.0.0",
-  "description": "",
+  "description": "Simple node threading library",
   "main": "index.js",
   "directories": {
-    "lib": "lib"
+    "lib": "lib",
+    "test": "tests"
   },
   "scripts": {
     "test": "jest"
@@ -13,8 +14,8 @@
     "type": "git",
     "url": "git+https://github.com/Inrixia/threads.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Inrix",
+  "license": "SEE LICENSE IN LICENSE",
   "bugs": {
     "url": "https://github.com/Inrixia/threads/issues"
   },
