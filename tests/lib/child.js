@@ -5,6 +5,8 @@ module.parent.thread.on('eventFromParent', (...args) => module.parent.thread.emi
 
 const add1 = async num => num+1
 
+const add1Slow = num => new Promise((resolve, reject) => setTimeout(() => resolve(num+1), Math.random()*1000))
+
 const add1Deep = async num => {
 	const subChild = new Parent(path.join(__dirname, './child.js'))
 	return subChild.add1(1)
@@ -22,4 +24,4 @@ const deepSmol = async s => {
 	return subChild.smol(s)
 }
 
-module.exports = { add1, add1Deep, return1, smol, deepSmol }
+module.exports = { add1, add1Slow, add1Deep, return1, smol, deepSmol }

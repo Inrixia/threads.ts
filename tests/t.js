@@ -13,5 +13,10 @@ if (false) (() => {
 
 if (true) (async () => {
 	const child = new ParentPool(path.join(__dirname, './lib/child.js'), { name: 'child', count: 4 })
-	console.log(await child.add1(1), await child.add1(2), await child.add1(3))
+	setInterval(() => console.log(child.working, child.queued))
+	Promise.all([
+		child.add1Slow(3)
+	]).then(console.log)
+	child.runQueue()
+	// process.exit(1)
 })()
