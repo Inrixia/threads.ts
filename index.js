@@ -1,5 +1,5 @@
 const Parent = require('./lib/Parent.js');
-const DistributedParent = require('./lib/DistributedParent.js');
+const ParentPool = require('./lib/ParentPool.js');
 const Thread = require('./lib/Thread.js');
 
-module.exports = { Parent, Thread, DistributedParent }
+module.exports = { Parent, Thread, ParentPool }

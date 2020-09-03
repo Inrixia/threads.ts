@@ -1,12 +1,12 @@
 const path = require('path')
 
-let Parent, DistributedParent, Thread;
+let Parent, ParentPool, Thread;
 
 beforeEach(() => {
-	Parent, DistributedParent, Thread = null
+	Parent, ParentPool, Thread = null
 	jest.clearAllMocks()
         .resetModules();
-	({ Parent, DistributedParent, Thread } = require('../index.js'))
+	({ Parent, ParentPool, Thread } = require('../index.js'))
 });
 
 const smolPath = path.join(__dirname, './lib/smol.js')
@@ -35,14 +35,14 @@ test('Requires and runs a function in one thread from another', () => {
 	return expect(child.smol(1)).resolves.toBe(2);
 });
 
-test('Spawns a distributed parent for child and runs four functions', () => {
-	const child = new DistributedParent(childPath, { name: 'child' })
+test('Spawns a ParentPool for child and runs four functions', () => {
+	const child = new ParentPool(childPath, { name: 'child' })
 	return expect(Promise.all([child.add1(1), child.add1(1), child.add1(1), child.add1(1)])).resolves.toStrictEqual([2, 2, 2, 2]);
 });
 
-// test('Requires and runs a function in a distributed thread from another', () => {
+// test('Requires and runs a function in a thread pool from another', () => {
 // 	const child = new Parent(childPath, { name: 'child' })
-// 	const smol = new DistributedParent(smolPath, { name: 'smol' })
+// 	const smol = new ParentPool(smolPath, { name: 'smol' })
 // 	return expect(child.smol(1).catch(console.log)).resolves.toBe(2);
 // });
 
