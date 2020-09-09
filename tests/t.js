@@ -11,7 +11,7 @@ if (false) (() => {
 	setInterval(() => child.emit('test', 'OwO', 'UwU', [1,2,3]), 1000)
 })()
 
-if (true) (async () => {
+if (false) (async () => {
 	const child = new ParentPool(path.join(__dirname, './lib/child.js'), { name: 'child', count: 4 })
 	setInterval(() => console.log(child.working, child.queued))
 	Promise.all([
@@ -19,4 +19,9 @@ if (true) (async () => {
 	]).then(console.log)
 	child.runQueue()
 	// process.exit(1)
+})()
+
+if (true) (async () => {
+	const child = new ParentPool(path.join(__dirname, './lib/child.js'), { name: 'child', count: 4 })
+	console.log(child.all.add1(1))
 })()
