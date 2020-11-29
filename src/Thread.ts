@@ -1,7 +1,8 @@
 import { isMainThread, workerData, MessageChannel, MessagePort, Worker } from "worker_threads";
 import ThreadStore from "./ThreadStore";
+import type ParentPool from "./ParentPool";
 
-import type { UnknownFunction, ThreadInfo, ThreadOptions, Messages, InternalFunctions } from "./Types";
+import type { UnknownFunction, ThreadInfo, ThreadOptions, Messages, InternalFunctions, ThreadExports } from "./Types";
 
 // Wrap around the `module.loaded` param so we only run functions after this module has finished loading
 let _moduleLoaded = false;
@@ -21,13 +22,18 @@ const moduleLoaded: Promise<boolean> = new Promise(resolve => {
 
 import { EventEmitter } from "events";
 
-type FunctionHandler = (message: Messages.Call | Messages.Queue) => Promise<void>
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type ValueOf<T> = T[keyof T];
 
-export default class Thread<D> extends EventEmitter {
-	private _options: ThreadOptions<D>;
+type FunctionHandler = (message: Messages.Call | Messages.Queue) => Promise<void>
+export default class Thread<M extends ThreadExports = ThreadExports, D = undefined> extends EventEmitter {
 	private _threadStore: ThreadStore;
 	private messagePort?: MessagePort | Worker;
 	public data?: D;
+	public name?: string;
+	public threadInfo?: string;
+
+	protected _sharedArrayBuffer: SharedArrayBuffer;
 
 	private _promises: { 
 		[key: string]: { 
@@ -36,28 +42,24 @@ export default class Thread<D> extends EventEmitter {
 		}
 	}
 	private _promiseKey: number;
-	private _functionQueue: Array<{
+	private _functionQueue: {
 		functionHandler: FunctionHandler
 		message: Messages.Call | Messages.Queue
-	}>
+	}[]
 
 	private _stopExecution: boolean
 
 	public importedThreads: { 
-		[key: string]: Thread<unknown>
+		[key: string]: Thread<ThreadExports, unknown>
 	}
 
 	private _internalFunctions?: InternalFunctions.Type
 
-	public queue?: { 
-		[key: string]: UnknownFunction 
-	};
-
-	[key: string]: unknown 
-
 	public static spawnedThreads: { 
-		[key: string]: Array<Thread<unknown>>
+		[key: string]: Array<Thread<ThreadExports, unknown>>
 	}
+
+	[key: string]: ValueOf<M> extends Extract<ValueOf<Thread<M, D>>, ValueOf<M>> ? unknown : ValueOf<M>
 
 	/**
 	 * Returns a promise containing a constructed `Thread`.
@@ -67,21 +69,22 @@ export default class Thread<D> extends EventEmitter {
 	 */
 	constructor(messagePort: Worker | MessagePort | false, options: ThreadOptions<D>) {
 		super();
-		this._threadStore = new ThreadStore(options.sharedArrayBuffer);
+		this._sharedArrayBuffer = options.sharedArrayBuffer || new SharedArrayBuffer(16);
+		this._threadStore = new ThreadStore(this._sharedArrayBuffer);
 		this.importedThreads = {};
 
 		this.data = options.data;
-		this._options = options;
+		this.name = options.name;
 
 		this._promises = {};
 		this._promiseKey = 0;
 		this._functionQueue = [];
 
 		this._stopExecution = false;
-		
+
 		if (messagePort === false) return this;
 		this.messagePort = messagePort;
-		
+
 		this._internalFunctions = {
 			runQueue: this._runQueue, 
 			stopExecution:  this.stopExecution, 
@@ -92,21 +95,21 @@ export default class Thread<D> extends EventEmitter {
 		// Create an eventlistener for handling thread events
 		this.messagePort.on("message", this._messageHandler(this.messagePort));
 
-		// Proxy this and the queue so any function calls are translated to thread calls
-		this.queue = new Proxy({}, {
-			get: (target, key: string) => (...args: Array<unknown>) => this._callThreadFunction(key, args, "queue")
-		});
-
 		return new Proxy(this, {
 			get: (target, key: string, receiver) => {
 				if (target[key] === undefined && key !== "then") {
-					return (...args: Array<unknown>) => this._callThreadFunction(key, args);
+					return (...args: unknown[]) => this._callThreadFunction(key, args);
 				} else return Reflect.get(target, key, receiver);
 			}
 		});
 	}
 
-	static addThread = (threadName: string, thread: Thread<unknown>): void => {
+	// Proxy this and the queue so any function calls are translated to thread calls
+	public queue = new Proxy({} as M, {
+		get: (_target, key: keyof M) => (...args: unknown[]) => this._callThreadFunction(key, args, "queue")
+	});
+
+	static addThread = (threadName: string, thread: Thread<ThreadExports, unknown> | ParentPool<ThreadExports, unknown>): void => {
 		if (Thread.spawnedThreads[threadName] == undefined) Thread.spawnedThreads[threadName] = [ thread ];
 		// else Thread.spawnedThreads[threadName].push(thread)
 	}
@@ -114,7 +117,7 @@ export default class Thread<D> extends EventEmitter {
 	//
 	// Event Functions
 	//
-	emit = (eventName: string, ...args: Array<unknown>): boolean => {
+	public emit = (eventName: string, ...args: Array<unknown>): boolean => {
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		this.messagePort!.postMessage({ type: "event", eventName, args });
 		return super.emit(eventName, ...args);
@@ -127,7 +130,7 @@ export default class Thread<D> extends EventEmitter {
 	/**
 	 * Stops execution of the function queue.
 	 */
-	stopExecution: InternalFunctions.StopExecution = async (): Promise<boolean> => this._stopExecution = true
+	public stopExecution: InternalFunctions.StopExecution = async () => this._stopExecution = true
 
 	/**
 	 * Imports a reference to a running thread by its threadName,
@@ -135,12 +138,12 @@ export default class Thread<D> extends EventEmitter {
 	 * const helloWorldThread = thisThread.require('helloWorld.js')
 	 * thisThread.threads['helloWorld.js'] // Also set to the thread reference for non async access
 	 */
-	require: InternalFunctions.Require = async <T extends Thread<D>>(threadName: string): Promise<T> => {
+	public require: InternalFunctions.Require = async (threadName: string) => {
 		if (this.importedThreads[threadName] == undefined) {
 			const threadResources = await this._callThreadFunction("_getThreadReferenceData", [threadName]) as ThreadInfo;
 			this.importedThreads[threadName] = new Thread(threadResources.messagePort, threadResources.workerData);
 		}
-		return this.importedThreads[threadName] as T;
+		return this.importedThreads[threadName];
 	}
 
 	/**
@@ -148,7 +151,7 @@ export default class Thread<D> extends EventEmitter {
 	 * Returns the new `messagePort` and this threads `workerData`.
 	 * @returns {{MessagePort: MessagePort, workerData:{sharedArrayBuffer:SharedArrayBuffer} Transfers: [MessagePort]}} Object containing data needed to reference this thread.
 	 */
-	_getThreadReferenceData: InternalFunctions.GetThreadReferenceData = async (threadName: string): Promise<ThreadInfo> => {
+	private _getThreadReferenceData: InternalFunctions.GetThreadReferenceData = async (threadName: string): Promise<ThreadInfo> => {
 		if (Thread.spawnedThreads[threadName] !== undefined) return await Thread.spawnedThreads[threadName][0]._callThreadFunction("_getThreadReferenceData", []) as ThreadInfo;
 		if (isMainThread && Thread.spawnedThreads[threadName] == undefined) {
 			throw new Error(`Thread ${threadName} has not been spawned! Spawned Threads: ${JSON.stringify(Object.keys(Thread.spawnedThreads))}`);
@@ -179,7 +182,7 @@ export default class Thread<D> extends EventEmitter {
 	 * @param {*} message.data Data passed to `function`.
 	 * @param {string|number} message.promiseKey Unique key used for returned promise.
 	 */
-	_queueSelfFunction = async (message: Messages.Queue | Messages.Call, functionHandler: FunctionHandler): Promise<void> => {
+	private _queueSelfFunction = async (message: Messages.Queue | Messages.Call, functionHandler: FunctionHandler): Promise<void> => {
 		this._functionQueue.push({ functionHandler, message });
 		this.queued++;
 	}
@@ -188,7 +191,7 @@ export default class Thread<D> extends EventEmitter {
 	 * Runs thread queue.
 	 * @returns {Promise<number>} functions run.
 	 */
-	_runQueue: InternalFunctions.RunQueue = async (): Promise<number> => {
+	private _runQueue: InternalFunctions.RunQueue = async (): Promise<number> => {
 		if (this._functionQueue.length === 0) return 0;
 		let functionsRun = 0;
 		while (this._functionQueue.length > 0) {
@@ -211,7 +214,7 @@ export default class Thread<D> extends EventEmitter {
 	 * @param {Object} message
 	 * @param {string} message.type
 	 */
-	_messageHandler = (messagePort: MessagePort | Worker): (message: Messages.AnyMessage) => void => {
+	private _messageHandler = (messagePort: MessagePort | Worker): (message: Messages.AnyMessage) => void => {
 		const functionHandler = this._functionHandler(messagePort);
 		return (message: Messages.AnyMessage) => {
 			// Call to run a local function
@@ -229,7 +232,7 @@ export default class Thread<D> extends EventEmitter {
 				break;
 			case "reject":
 				if (message.data?.stack) { // Build a special stacktrace that contains all thread info
-					message.data.stack = message.data.stack.replace(/\[worker eval\]/g, this._options.threadInfo as string);
+					message.data.stack = message.data.stack.replace(/\[worker eval\]/g, this.threadInfo as string);
 				}
 				this._promises[message.promiseKey].reject(message.data);
 				delete this._promises[message.promiseKey];
@@ -253,7 +256,7 @@ export default class Thread<D> extends EventEmitter {
 	 * @param messagePort the port calls are handled over.
 	 * @returns xThread function handler.
 	 */
-	_functionHandler = (messagePort: MessagePort | Worker) => async (message: Messages.Call | Messages.Queue): Promise<void> => {
+	private _functionHandler = (messagePort: MessagePort | Worker) => async (message: Messages.Call | Messages.Queue): Promise<void> => {
 		let theFunction: UnknownFunction, funcToExec: UnknownFunction;
 
 		if (!module.loaded) await moduleLoaded;
@@ -261,7 +264,7 @@ export default class Thread<D> extends EventEmitter {
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		if (module.parent!.exports[message.func] !== undefined) theFunction = module.parent!.exports[message.func];
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		else if (this._internalFunctions![message.func as keyof InternalFunctions.Type] !== undefined) theFunction = this._internalFunctions![message.func as keyof InternalFunctions.Type];
+		else if (this._internalFunctions && this._internalFunctions[message.func as keyof InternalFunctions.Type] !== undefined) theFunction = this._internalFunctions[message.func as keyof InternalFunctions.Type];
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		else throw new Error(`Cannot run function in thread [${this.name}:${this.threadInfo}]. Function ${JSON.stringify(message.func)} is ${typeof theFunction!}. `);
 
@@ -292,7 +295,7 @@ export default class Thread<D> extends EventEmitter {
 	 * 
 	 * @returns {Promise} Promise that resolves with function result.
 	 */
-	_callThreadFunction(func: string, data: unknown[], type="call"): Promise<unknown> {
+	private _callThreadFunction(func: string, data: unknown[], type="call"): Promise<unknown> {
 		const promiseKey = this._promiseKey++;
 		if (this._promises[promiseKey] != undefined) throw new Error("Duplicate promise key!");
 		// Store the resolve/reject functions in this._promises

@@ -1,10 +1,17 @@
-const { MessageChannel } = require("worker_threads");
+import Thread from "./Thread";
+// import ThreadStore from "./ThreadStore";
+import Parent from "./Parent";
 
-const Thread = require("./Thread.js");
-const ThreadStore = require("./ThreadStore.js");
-const Parent = require("./Parent.js");
+import { ThreadOptions, InternalFunctions, UnknownFunction, ThreadExports } from "./Types";
 
-class ParentPool extends Thread {
+export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D> {
+	private _threadSelect: number;
+
+	private _subThreads: Array<Parent<M, D>>;
+	private randomID: number;
+	
+	public pool: boolean;
+
 	/**
 	 * Spawns a collection of new `childThreads` and returns class to interface them.
 	 * @param {string} threadInfo File or stringified code for thread to run.
@@ -15,21 +22,16 @@ class ParentPool extends Thread {
 	 * @param {SharedArrayBuffer} [options.sharedArrayBuffer] Shared array buffer to use for thread.
 	 * @param {*} [options.data] Data to be passed to thread as module.parent.thread.data
 	 */
-	constructor(threadInfo, options={}) {
-		if (!options.sharedArrayBuffer) options.sharedArrayBuffer = new SharedArrayBuffer(16);
+	constructor(threadInfo: string, options: ThreadOptions<D>) {
 		super(false, options);
+
 		if (!options.count) options.count = 4;
 		if (options.count < 1) options.count = 1;
-
-		this._internalFunctions = {
-			runQueue: this._runQueue,
-			stopExecution:  this.stopExecution, 
-		};
 
 		this._subThreads = [];
 		this._threadSelect = 0;
 
-		Thread.addThread(options.name||threadInfo, this);
+		Thread.addThread(options.name || threadInfo, this);
 
 		this.randomID = Math.random();
 		this.name = options.name;
@@ -38,64 +40,56 @@ class ParentPool extends Thread {
 		this.pool = true;
 
 		// Spawn parent threads
-		for (let i = 0; i < options.count; i++) this._subThreads.push(
-			new Parent(threadInfo, {
-				name: `${options.name}_${i}_${this.randomID}`,
-				eval: options.eval,
-				sharedArrayBuffer: this._sharedArrayBuffer,
-				data: options.data
-			})
-		);
+		for (let i = 0; i < options.count; i++)
+			this._subThreads.push(
+				new Parent(threadInfo, {
+					name: `${options.name}_${i}_${this.randomID}`,
+					eval: options.eval,
+					sharedArrayBuffer: this._sharedArrayBuffer,
+					data: options.data,
+				})
+			);
 
-		// Proxy this and the queue so any function calls are translated to thread calls
-		this.queue = new Proxy({}, {
-			get: (target, key, receiver) => (...args) => {
-				// Calls on the parent to request the child to run the specified function
-				const promise = this._subThreads[this.threadSelect]["_callThreadFunction"](key, args, "queue");
-				promise.then(this._onQueueEnd, this._onQueueEnd);
-				return promise;
-			}
-		});
-
-		this.all = new Proxy({}, {
-			get: (target, key, receiver) => (...args) => this._forAllThreads(key, ...args)
-		});
 		return new Proxy(this, {
-			get: (target, key, receiver) => {
-				if (target[key] == undefined && key != "then") {	
-					return (...args) => {
-						const promise = this._subThreads[this.threadSelect]["_callThreadFunction"](key, args, "call");
-						return promise;
-					};
+			get: (target, key: string, receiver) => {
+				if (target[key] === undefined && key != "then") {
+					return (...args: unknown[]) => this._subThreads[this.threadSelect]["_callThreadFunction"](key, args, "call");
 				} else return Reflect.get(target, key, receiver);
-			}
+			},
 		});
 	}
 
-	get threadSelect() {
-		if (this._threadSelect > this._subThreads.length-1) this._threadSelect = 0;
+	// Proxy this and the queue so any function calls are translated to thread calls
+	public queue = new Proxy({} as M, {
+		// Calls on the parent to request the child to queue the specified function
+		get: (_target, key: keyof M) => (...args: unknown[]) => this._subThreads[this.threadSelect]["_callThreadFunction"](key, args, "queue")
+	});
+	public all = new Proxy({} as M, {
+		get: (_target, key: keyof M) => (...args: unknown[]) => this._forAllThreads(key, ...args)
+	});
+
+	get threadSelect(): number {
+		if (this._threadSelect > this._subThreads.length - 1) this._threadSelect = 0;
 		return this._threadSelect++;
 	}
-	set threadSelect(value) {
+	set threadSelect(_value: number) {
 		throw new Error("Cannot set property \"threadSelect\" on a ParentPool.");
 	}
 
 	/**
 	 * Runs thread queues.
-	 * @returns {number} functions run.
+	 * @returns functions run.
 	 */
-	runQueue = async () => await this._forAllThreads("runQueue")
+	runQueue: InternalFunctions.RunQueue = async () => (await this._forAllThreads("runQueue")) as number[];
 	/**
 	 * Stops execution of the function queues.
 	 */
-	stopExecution = () => this._forAllThreads("stopExecution")
+	stopExecution: InternalFunctions.StopExecution = async () => (await this._forAllThreads("stopExecution")) as boolean[];
 
 	/**
 	 * Calls a function on all threads.
 	 * @param {string} func Name of function to call.
 	 * @param {*} ...args Arguments to pass to function.
 	 */
-	_forAllThreads = (func, ...args) => Promise.all(this._subThreads.map(thread => thread[func](...args)))
+	_forAllThreads = (func: string, ...args: unknown[]): Promise<unknown[]> => Promise.all(this._subThreads.map((thread) => (thread[func] as UnknownFunction)(...args)));
 }
-
-module.exports = ParentPool;

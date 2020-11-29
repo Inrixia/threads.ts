@@ -5,9 +5,9 @@ const threadPath = path.join(__dirname, "./Thread.js").replace(/\\/g, "\\\\");
 
 import Thread from "./Thread";
 
-import { ThreadOptions } from "./Types";
+import { ThreadExports, ThreadOptions } from "./Types";
 
-export default class Parent<D> extends Thread<D> {
+export default class Parent<M extends ThreadExports = ThreadExports, D = undefined> extends Thread<M, D> {
 	/**
 	 * Spawns a new `childThread` and returns a class to interface with it.
 	 * @param {string} threadInfo File or stringified code for thread to run.
@@ -17,8 +17,7 @@ export default class Parent<D> extends Thread<D> {
 	 * @param {SharedArrayBuffer} [options.sharedArrayBuffer] Shared array buffer to use for thread.
 	 * @param {*} [options.data] Data to be passed to thread as module.parent.thread.data
 	 */
-	constructor(threadInfo: string, options: ThreadOptions<D>) {
-		options.threadInfo = threadInfo;
+	constructor(threadInfo: string, options: ThreadOptions<D> = {}) {
 
 		let threadImport;
 		if (!options.eval) threadImport = `module.exports = require('${threadInfo.replace(/\\/g, "\\\\")}')`;
@@ -38,3 +37,4 @@ export default class Parent<D> extends Thread<D> {
 		this.threadInfo = threadInfo;
 	}
 }
+

@@ -2,7 +2,7 @@
   "name": "@inrixia/threads",
   "version": "1.5.0",
   "description": "Simple node threading library",
-  "main": "index.js",
+  "main": "dist/index.ts",
   "directories": {
     "lib": "lib",
     "test": "tests"

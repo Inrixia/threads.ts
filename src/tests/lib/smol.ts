@@ -1,0 +1,1 @@
+export const smol = (s: number): number => s+1;

@@ -2,21 +2,30 @@ import { MessagePort } from "worker_threads";
 
 import type Thread from "./Thread";
 
+export declare type ThreadExports = {
+	[key: string]: unknown
+}
+
+export declare type ThreadModule<D> = NodeJS.Module & { 
+	thread: Thread<ThreadExports, D>,
+	exports: ThreadExports
+}
+
 export declare type ThreadOptions<T> = {
 	name?: string;
-	threadInfo?: string;
 	eval?: boolean;
-	sharedArrayBuffer: SharedArrayBuffer;
+	sharedArrayBuffer?: SharedArrayBuffer;
 	data?: T;
+	count?: number;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export declare type UnknownFunction = (...args: any[]) => Promise<any>;
 
 export declare namespace InternalFunctions {
-	export declare type RunQueue = () => Promise<number>
-	export declare type StopExecution = () => Promise<boolean>
-	export declare type Require = <T extends Thread<D>>(threadName: string) => Promise<T>
+	export declare type RunQueue = () => Promise<number | number[]>
+	export declare type StopExecution = () => Promise<boolean | boolean[]>
+	export declare type Require = <M extends ThreadExports, D>(threadName: string) => Promise<M & Thread<D>>
 	export declare type GetThreadReferenceData = (threadName: string) => Promise<ThreadInfo>
 
 	export declare type Type = {
@@ -54,13 +63,13 @@ export declare namespace Messages {
 		promiseKey: number
 	}
 	export declare type Call = {
-		func: string
+		func: keyof ThreadExports
 		type: "call"
 		data: Array<unknown>
 		promiseKey: number
 	}
 	export declare type Queue = {
-		func: string
+		func: keyof ThreadExports
 		type: "queue"
 		data: Array<unknown>
 		promiseKey: number
