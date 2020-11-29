@@ -2,9 +2,13 @@ import { MessagePort } from "worker_threads";
 
 import type Thread from "./Thread";
 
+export declare type ValueOf<T> = T[keyof T];
+
 export declare type ThreadExports = {
 	[key: string]: unknown
 }
+
+export declare type ThreadData = undefined | unknown
 
 export declare type ThreadModule<D> = NodeJS.Module & { 
 	thread: Thread<ThreadExports, D>,
@@ -25,7 +29,7 @@ export declare type UnknownFunction = (...args: any[]) => Promise<any>;
 export declare namespace InternalFunctions {
 	export declare type RunQueue = () => Promise<number | number[]>
 	export declare type StopExecution = () => Promise<boolean | boolean[]>
-	export declare type Require = <M extends ThreadExports, D>(threadName: string) => Promise<M & Thread<D>>
+	export declare type Require = <MM extends ThreadExports, DD extends ThreadData>(threadName: string) => Promise<Thread<MM, DD>>
 	export declare type GetThreadReferenceData = (threadName: string) => Promise<ThreadInfo>
 
 	export declare type Type = {

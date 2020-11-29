@@ -2,7 +2,7 @@ import { isMainThread, workerData, MessageChannel, MessagePort, Worker } from "w
 import ThreadStore from "./ThreadStore";
 import type ParentPool from "./ParentPool";
 
-import type { UnknownFunction, ThreadInfo, ThreadOptions, Messages, InternalFunctions, ThreadExports } from "./Types";
+import type { UnknownFunction, ThreadInfo, ThreadOptions, Messages, InternalFunctions, ThreadExports, ThreadData, ValueOf } from "./Types";
 
 // Wrap around the `module.loaded` param so we only run functions after this module has finished loading
 let _moduleLoaded = false;
@@ -23,10 +23,9 @@ const moduleLoaded: Promise<boolean> = new Promise(resolve => {
 import { EventEmitter } from "events";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-type ValueOf<T> = T[keyof T];
 
 type FunctionHandler = (message: Messages.Call | Messages.Queue) => Promise<void>
-export default class Thread<M extends ThreadExports = ThreadExports, D = undefined> extends EventEmitter {
+export default class Thread<M extends ThreadExports = ThreadExports, D extends ThreadData = undefined> extends EventEmitter {
 	private _threadStore: ThreadStore;
 	private messagePort?: MessagePort | Worker;
 	public data?: D;
@@ -50,13 +49,13 @@ export default class Thread<M extends ThreadExports = ThreadExports, D = undefin
 	private _stopExecution: boolean
 
 	public importedThreads: { 
-		[key: string]: Thread<ThreadExports, unknown>
+		[key: string]: Thread<ThreadExports, ThreadData>
 	}
 
 	private _internalFunctions?: InternalFunctions.Type
 
 	public static spawnedThreads: { 
-		[key: string]: Array<Thread<ThreadExports, unknown>>
+		[key: string]: Array<Thread<ThreadExports, ThreadData>>
 	}
 
 	[key: string]: ValueOf<M> extends Extract<ValueOf<Thread<M, D>>, ValueOf<M>> ? unknown : ValueOf<M>
@@ -106,10 +105,10 @@ export default class Thread<M extends ThreadExports = ThreadExports, D = undefin
 
 	// Proxy this and the queue so any function calls are translated to thread calls
 	public queue = new Proxy({} as M, {
-		get: (_target, key: keyof M) => (...args: unknown[]) => this._callThreadFunction(key, args, "queue")
+		get: (_target, key: string) => (...args: unknown[]) => this._callThreadFunction(key, args, "queue")
 	});
 
-	static addThread = (threadName: string, thread: Thread<ThreadExports, unknown> | ParentPool<ThreadExports, unknown>): void => {
+	static addThread = (threadName: string, thread: Thread<ThreadExports, ThreadData> | ParentPool<ThreadExports, ThreadData>): void => {
 		if (Thread.spawnedThreads[threadName] == undefined) Thread.spawnedThreads[threadName] = [ thread ];
 		// else Thread.spawnedThreads[threadName].push(thread)
 	}
@@ -138,12 +137,12 @@ export default class Thread<M extends ThreadExports = ThreadExports, D = undefin
 	 * const helloWorldThread = thisThread.require('helloWorld.js')
 	 * thisThread.threads['helloWorld.js'] // Also set to the thread reference for non async access
 	 */
-	public require: InternalFunctions.Require = async (threadName: string) => {
+	public require: InternalFunctions.Require = async <MM extends ThreadExports, DD extends ThreadData>(threadName: string): Promise<Thread<MM, DD>> => {
 		if (this.importedThreads[threadName] == undefined) {
 			const threadResources = await this._callThreadFunction("_getThreadReferenceData", [threadName]) as ThreadInfo;
 			this.importedThreads[threadName] = new Thread(threadResources.messagePort, threadResources.workerData);
 		}
-		return this.importedThreads[threadName];
+		return this.importedThreads[threadName] as unknown as Thread<MM, DD>;
 	}
 
 	/**
