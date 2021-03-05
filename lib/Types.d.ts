@@ -2,7 +2,15 @@ import { MessagePort } from "worker_threads";
 
 import type Thread from "./Thread";
 
-export declare type ValueOf<T> = T[keyof T];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type UnsafeReturnType<T> = T extends (...args: any[]) => infer R ? R : any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type UnsafeParameters<T> = T extends (...args: infer P) => any ? P : never;
+
+export type PromisefulModule<M extends ThreadExports> = { 
+	// eslint-disable-next-line @typescript-eslint/ban-types
+	[K in keyof M]: M[K] extends Function ? (...args: UnsafeParameters<M[K]>) => Promise<UnsafeReturnType<M[K]>> : () => Promise<M[K]>
+}
 
 export declare type ThreadExports = {
 	[key: string]: unknown
@@ -10,9 +18,9 @@ export declare type ThreadExports = {
 
 export declare type ThreadData = undefined | unknown
 
-export declare type ThreadModule<D> = NodeJS.Module & { 
-	thread: Thread<ThreadExports, D>,
-	exports: ThreadExports
+export declare type ThreadModule<E extends ThreadExports = ThreadExports, D = unknown> = NodeJS.Module & { 
+	thread: Thread<E, D>,
+	exports: E
 }
 
 export declare type ThreadOptions<T> = {

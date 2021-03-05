@@ -1,8 +1,8 @@
 import { isMainThread, workerData, MessageChannel, MessagePort, Worker } from "worker_threads";
-import ThreadStore from "./ThreadStore";
+import { ThreadStore } from "./ThreadStore";
 import type ParentPool from "./ParentPool";
 
-import type { UnknownFunction, ThreadInfo, ThreadOptions, Messages, InternalFunctions, ThreadExports, ThreadData, ValueOf } from "./Types";
+import type { UnknownFunction, ThreadInfo, ThreadOptions, Messages, InternalFunctions, ThreadExports, ThreadData } from "./Types";
 
 // Wrap around the `module.loaded` param so we only run functions after this module has finished loading
 let _moduleLoaded = false;
@@ -25,7 +25,8 @@ import { EventEmitter } from "events";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 type FunctionHandler = (message: Messages.Call | Messages.Queue) => Promise<void>
-export default class Thread<M extends ThreadExports = ThreadExports, D extends ThreadData = undefined> extends EventEmitter {
+
+export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadData = undefined> extends EventEmitter {
 	private _threadStore: ThreadStore;
 	private messagePort?: MessagePort | Worker;
 	public data?: D;
@@ -56,9 +57,7 @@ export default class Thread<M extends ThreadExports = ThreadExports, D extends T
 
 	public static spawnedThreads: { 
 		[key: string]: Array<Thread<ThreadExports, ThreadData>>
-	}
-
-	[key: string]: ValueOf<M> extends Extract<ValueOf<Thread<M, D>>, ValueOf<M>> ? unknown : ValueOf<M>
+	} = {}
 
 	/**
 	 * Returns a promise containing a constructed `Thread`.
@@ -96,7 +95,7 @@ export default class Thread<M extends ThreadExports = ThreadExports, D extends T
 
 		return new Proxy(this, {
 			get: (target, key: string, receiver) => {
-				if (target[key] === undefined && key !== "then") {
+				if ((target as unknown as { [key: string]: unknown })[key] === undefined && key !== "then") {
 					return (...args: unknown[]) => this._callThreadFunction(key, args);
 				} else return Reflect.get(target, key, receiver);
 			}
@@ -109,9 +108,14 @@ export default class Thread<M extends ThreadExports = ThreadExports, D extends T
 	});
 
 	static addThread = (threadName: string, thread: Thread<ThreadExports, ThreadData> | ParentPool<ThreadExports, ThreadData>): void => {
-		if (Thread.spawnedThreads[threadName] == undefined) Thread.spawnedThreads[threadName] = [ thread ];
+		if (Thread.spawnedThreads[threadName] === undefined) Thread.spawnedThreads[threadName] = [ thread ];
 		// else Thread.spawnedThreads[threadName].push(thread)
 	}
+
+	//
+	// General Functions
+	//
+	public terminate = (): Promise<number> => (this.messagePort as Worker).terminate();
 
 	//
 	// Event Functions
@@ -256,19 +260,21 @@ export default class Thread<M extends ThreadExports = ThreadExports, D extends T
 	 * @returns xThread function handler.
 	 */
 	private _functionHandler = (messagePort: MessagePort | Worker) => async (message: Messages.Call | Messages.Queue): Promise<void> => {
-		let theFunction: UnknownFunction, funcToExec: UnknownFunction;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let theProperty: any, funcToExec: UnknownFunction;
 
 		if (!module.loaded) await moduleLoaded;
 
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		if (module.parent!.exports[message.func] !== undefined) theFunction = module.parent!.exports[message.func];
+		if (module.parent!.exports[message.func] !== undefined) theProperty = module.parent!.exports[message.func];
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		else if (this._internalFunctions && this._internalFunctions[message.func as keyof InternalFunctions.Type] !== undefined) theFunction = this._internalFunctions[message.func as keyof InternalFunctions.Type];
+		else if (this._internalFunctions && this._internalFunctions[message.func as keyof InternalFunctions.Type] !== undefined) theProperty = this._internalFunctions[message.func as keyof InternalFunctions.Type];
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		else throw new Error(`Cannot run function in thread [${this.name}:${this.threadInfo}]. Function ${JSON.stringify(message.func)} is ${typeof theFunction!}. `);
+		else throw new Error(`Cannot run function in thread [${this.name}:${this.threadInfo}]. Function ${JSON.stringify(message.func)} is ${typeof theProperty!}. `);
 
-		if (theFunction.constructor.name !== "AsyncFunction") funcToExec = async (...args) => theFunction(...args);
-		else funcToExec = theFunction;
+		if (theProperty.constructor.name === "Function") funcToExec = async (...args) => theProperty(...args);
+		else if (theProperty.constructor.name !== "AsyncFunction") funcToExec = async () => theProperty;
+		else funcToExec = theProperty;
 		this.working++;
 		await funcToExec(...message.data)
 			.then(

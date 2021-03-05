@@ -1,4 +1,4 @@
-export default class ThreadStore {
+export class ThreadStore {
 	private _dataView: DataView
 
 	/**

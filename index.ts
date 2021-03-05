@@ -1,4 +1,4 @@
-export * as Parent from "./src/Parent";
-export * as Thread from "./src/Thread";
-export * as ThreadStore from "./src/ThreadStore";
-export * from "./src/Types";
+export * from "./lib/Parent";
+export * from "./lib/Thread";
+export * from "./lib/ThreadStore";
+export * from "./lib/Types";

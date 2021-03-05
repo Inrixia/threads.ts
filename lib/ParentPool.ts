@@ -1,13 +1,13 @@
-import Thread from "./Thread";
+import { Thread } from "./Thread"; 
 // import ThreadStore from "./ThreadStore";
-import Parent from "./Parent";
+import { ParentClass } from "./Parent";
 
 import { ThreadOptions, InternalFunctions, UnknownFunction, ThreadExports } from "./Types";
 
 export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D> {
 	private _threadSelect: number;
 
-	private _subThreads: Array<Parent<M, D>>;
+	private _subThreads: Array<ParentClass<M, D>>;
 	private randomID: number;
 	
 	public pool: boolean;
@@ -42,7 +42,7 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 		// Spawn parent threads
 		for (let i = 0; i < options.count; i++)
 			this._subThreads.push(
-				new Parent(threadInfo, {
+				new ParentClass(threadInfo, {
 					name: `${options.name}_${i}_${this.randomID}`,
 					eval: options.eval,
 					sharedArrayBuffer: this._sharedArrayBuffer,
@@ -52,7 +52,7 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 
 		return new Proxy(this, {
 			get: (target, key: string, receiver) => {
-				if (target[key] === undefined && key != "then") {
+				if ((target as unknown as { [key: string]: unknown })[key] === undefined && key != "then") {
 					return (...args: unknown[]) => this._subThreads[this.threadSelect]["_callThreadFunction"](key, args, "call");
 				} else return Reflect.get(target, key, receiver);
 			},
@@ -60,13 +60,14 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 	}
 
 	// Proxy this and the queue so any function calls are translated to thread calls
-	public queue = new Proxy({} as M, {
-		// Calls on the parent to request the child to queue the specified function
-		get: (_target, key: keyof M) => (...args: unknown[]) => this._subThreads[this.threadSelect]["_callThreadFunction"](key, args, "queue")
-	});
-	public all = new Proxy({} as M, {
-		get: (_target, key: keyof M) => (...args: unknown[]) => this._forAllThreads(key, ...args)
-	});
+	// THIS NEEDS TO BE FIXED
+	// public queue = new Proxy({} as M, {
+	// 	// Calls on the parent to request the child to queue the specified function
+	// 	get: (_target, key: keyof M) => (...args: unknown[]) => this._subThreads[this.threadSelect]["_callThreadFunction"](key, args, "queue")
+	// });
+	// public all = new Proxy({} as M, {
+	// 	get: (_target, key: keyof M) => (...args: unknown[]) => this._forAllThreads(key, ...args)
+	// });
 
 	get threadSelect(): number {
 		if (this._threadSelect > this._subThreads.length - 1) this._threadSelect = 0;
@@ -91,5 +92,5 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 	 * @param {string} func Name of function to call.
 	 * @param {*} ...args Arguments to pass to function.
 	 */
-	_forAllThreads = (func: string, ...args: unknown[]): Promise<unknown[]> => Promise.all(this._subThreads.map((thread) => (thread[func] as UnknownFunction)(...args)));
+	_forAllThreads = (func: string, ...args: unknown[]): Promise<unknown[]> => Promise.all(this._subThreads.map(thread => (thread as ParentClass<M, D> & { [key: string]: UnknownFunction })[func](...args)));
 }
