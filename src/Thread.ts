@@ -2,7 +2,7 @@ import { isMainThread, workerData, MessageChannel, MessagePort, Worker } from "w
 import { ThreadStore } from "./ThreadStore";
 import type ParentPool from "./ParentPool";
 
-import type { UnknownFunction, ThreadInfo, ThreadOptions, Messages, InternalFunctions, ThreadExports, ThreadData } from "./Types";
+import type { UnknownFunction, ThreadInfo, ThreadOptions, Messages, ThreadExports, ThreadData, InternalFunctions, AnyMessage } from "./Types";
 
 // Wrap around the `module.loaded` param so we only run functions after this module has finished loading
 let _moduleLoaded = false;
@@ -22,9 +22,8 @@ const moduleLoaded: Promise<boolean> = new Promise(resolve => {
 
 import { EventEmitter } from "events";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 
-type FunctionHandler = (message: Messages.Call | Messages.Queue) => Promise<void>
+type FunctionHandler = (message: Messages["Call"] | Messages["Queue"]) => Promise<void>
 
 export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadData = undefined> extends EventEmitter {
 	private _threadStore: ThreadStore;
@@ -44,7 +43,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	private _promiseKey: number;
 	private _functionQueue: {
 		functionHandler: FunctionHandler
-		message: Messages.Call | Messages.Queue
+		message: Messages["Call"] | Messages["Queue"]
 	}[]
 
 	private _stopExecution: boolean
@@ -53,7 +52,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		[key: string]: Thread<ThreadExports, ThreadData>
 	}
 
-	private _internalFunctions?: InternalFunctions.Type
+	private _internalFunctions?: InternalFunctions;
 
 	public static spawnedThreads: { 
 		[key: string]: Array<Thread<ThreadExports, ThreadData>>
@@ -85,7 +84,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 
 		this._internalFunctions = {
 			runQueue: this._runQueue, 
-			stopExecution:  this.stopExecution, 
+			stopExecution: this.stopExecution, 
 			require: this.require, 
 			_getThreadReferenceData: this._getThreadReferenceData
 		};
@@ -133,7 +132,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	/**
 	 * Stops execution of the function queue.
 	 */
-	public stopExecution: InternalFunctions.StopExecution = async () => this._stopExecution = true
+	public stopExecution: InternalFunctions["stopExecution"] = async () => this._stopExecution = true
 
 	/**
 	 * Imports a reference to a running thread by its threadName,
@@ -141,7 +140,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * const helloWorldThread = thisThread.require('helloWorld.js')
 	 * thisThread.threads['helloWorld.js'] // Also set to the thread reference for non async access
 	 */
-	public require: InternalFunctions.Require = async <MM extends ThreadExports, DD extends ThreadData>(threadName: string): Promise<Thread<MM, DD>> => {
+	public require: InternalFunctions["require"] = async <MM extends ThreadExports, DD extends ThreadData>(threadName: string): Promise<Thread<MM, DD>> => {
 		if (this.importedThreads[threadName] == undefined) {
 			const threadResources = await this._callThreadFunction("_getThreadReferenceData", [threadName]) as ThreadInfo;
 			this.importedThreads[threadName] = new Thread(threadResources.messagePort, threadResources.workerData);
@@ -154,7 +153,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * Returns the new `messagePort` and this threads `workerData`.
 	 * @returns {{MessagePort: MessagePort, workerData:{sharedArrayBuffer:SharedArrayBuffer} Transfers: [MessagePort]}} Object containing data needed to reference this thread.
 	 */
-	private _getThreadReferenceData: InternalFunctions.GetThreadReferenceData = async (threadName: string): Promise<ThreadInfo> => {
+	private _getThreadReferenceData: InternalFunctions["_getThreadReferenceData"] = async (threadName: string): Promise<ThreadInfo> => {
 		if (Thread.spawnedThreads[threadName] !== undefined) return await Thread.spawnedThreads[threadName][0]._callThreadFunction("_getThreadReferenceData", []) as ThreadInfo;
 		if (isMainThread && Thread.spawnedThreads[threadName] == undefined) {
 			throw new Error(`Thread ${threadName} has not been spawned! Spawned Threads: ${JSON.stringify(Object.keys(Thread.spawnedThreads))}`);
@@ -185,7 +184,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * @param {*} message.data Data passed to `function`.
 	 * @param {string|number} message.promiseKey Unique key used for returned promise.
 	 */
-	private _queueSelfFunction = async (message: Messages.Queue | Messages.Call, functionHandler: FunctionHandler): Promise<void> => {
+	private _queueSelfFunction = async (message: Messages["Queue"] | Messages["Call"], functionHandler: FunctionHandler): Promise<void> => {
 		this._functionQueue.push({ functionHandler, message });
 		this.queued++;
 	}
@@ -194,7 +193,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * Runs thread queue.
 	 * @returns {Promise<number>} functions run.
 	 */
-	private _runQueue: InternalFunctions.RunQueue = async (): Promise<number> => {
+	private _runQueue: InternalFunctions["runQueue"] = async (): Promise<number> => {
 		if (this._functionQueue.length === 0) return 0;
 		let functionsRun = 0;
 		while (this._functionQueue.length > 0) {
@@ -217,9 +216,9 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * @param {Object} message
 	 * @param {string} message.type
 	 */
-	private _messageHandler = (messagePort: MessagePort | Worker): (message: Messages.AnyMessage) => void => {
+	private _messageHandler = (messagePort: MessagePort | Worker): (message: AnyMessage) => void => {
 		const functionHandler = this._functionHandler(messagePort);
-		return (message: Messages.AnyMessage) => {
+		return (message: AnyMessage) => {
 			// Call to run a local function
 			switch (message.type) {
 			case "call":
@@ -227,7 +226,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 					type: "reject",
 					data,
 					promiseKey: message.promiseKey
-				} as Messages.Reject));
+				} as Messages["Reject"]));
 				break;
 			case "resolve":
 				this._promises[message.promiseKey].resolve(message.data);
@@ -248,7 +247,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 					type: "reject",
 					data,
 					promiseKey: message.promiseKey
-				} as Messages.Reject));
+				} as Messages["Reject"]));
 				break;
 			}
 		};
@@ -259,16 +258,16 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * @param messagePort the port calls are handled over.
 	 * @returns xThread function handler.
 	 */
-	private _functionHandler = (messagePort: MessagePort | Worker) => async (message: Messages.Call | Messages.Queue): Promise<void> => {
+	private _functionHandler = (messagePort: MessagePort | Worker) => async (message: Messages["Call"] | Messages["Queue"]): Promise<void> => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		let theProperty: any, funcToExec: UnknownFunction;
 
 		if (!module.loaded) await moduleLoaded;
 
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		if (module.parent!.exports[message.func] !== undefined) theProperty = module.parent!.exports[message.func];
+		if (require.main!.exports[message.func] !== undefined) theProperty = require.main!.exports[message.func];
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		else if (this._internalFunctions && this._internalFunctions[message.func as keyof InternalFunctions.Type] !== undefined) theProperty = this._internalFunctions[message.func as keyof InternalFunctions.Type];
+		else if (this._internalFunctions && this._internalFunctions[message.func as keyof InternalFunctions] !== undefined) theProperty = this._internalFunctions[message.func as keyof InternalFunctions];
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		else throw new Error(`Cannot run function in thread [${this.name}:${this.threadInfo}]. Function ${JSON.stringify(message.func)} is ${typeof theProperty!}. `);
 
@@ -302,7 +301,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 */
 	private _callThreadFunction(func: string, data: unknown[], type="call"): Promise<unknown> {
 		const promiseKey = this._promiseKey++;
-		if (this._promises[promiseKey] != undefined) throw new Error("Duplicate promise key!");
+		if (this._promises[promiseKey] !== undefined) throw new Error("Duplicate promise key!");
 		// Store the resolve/reject functions in this._promises
 		const thisStack = new Error().stack;
 		const promise = new Promise((resolve, reject) => this._promises[promiseKey] = { 

@@ -81,11 +81,11 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 	 * Runs thread queues.
 	 * @returns functions run.
 	 */
-	runQueue: InternalFunctions.RunQueue = async () => (await this._forAllThreads("runQueue")) as number[];
+	runQueue: InternalFunctions["runQueue"] = async () => (await this._forAllThreads("runQueue")) as number[];
 	/**
 	 * Stops execution of the function queues.
 	 */
-	stopExecution: InternalFunctions.StopExecution = async () => (await this._forAllThreads("stopExecution")) as boolean[];
+	stopExecution: InternalFunctions["stopExecution"] = async () => (await this._forAllThreads("stopExecution")) as boolean[];
 
 	/**
 	 * Calls a function on all threads.

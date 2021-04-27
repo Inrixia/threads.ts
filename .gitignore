@@ -14,4 +14,4 @@ desktop.ini
 node_modules/
 *.tgz
 
-dest
+dist/

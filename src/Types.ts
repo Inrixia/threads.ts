@@ -1,6 +1,6 @@
 import { MessagePort } from "worker_threads";
 
-import type Thread from "./Thread";
+import type { Thread } from "./Thread";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type UnsafeReturnType<T> = T extends (...args: any[]) => infer R ? R : any;
@@ -12,18 +12,18 @@ export type PromisefulModule<M extends ThreadExports> = {
 	[K in keyof M]: M[K] extends Function ? (...args: UnsafeParameters<M[K]>) => Promise<UnsafeReturnType<M[K]>> : () => Promise<M[K]>
 }
 
-export declare type ThreadExports = {
+export type ThreadExports = {
 	[key: string]: unknown
 }
 
-export declare type ThreadData = undefined | unknown
+export type ThreadData = undefined | unknown
 
-export declare type ThreadModule<E extends ThreadExports = ThreadExports, D = unknown> = NodeJS.Module & { 
+export type ThreadModule<E extends ThreadExports = ThreadExports, D = unknown> = NodeJS.Module & { 
 	thread: Thread<E, D>,
 	exports: E
 }
 
-export declare type ThreadOptions<T> = {
+export type ThreadOptions<T> = {
 	name?: string;
 	eval?: boolean;
 	sharedArrayBuffer?: SharedArrayBuffer;
@@ -32,24 +32,10 @@ export declare type ThreadOptions<T> = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export declare type UnknownFunction = (...args: any[]) => Promise<any>;
-
-export declare namespace InternalFunctions {
-	export declare type RunQueue = () => Promise<number | number[]>
-	export declare type StopExecution = () => Promise<boolean | boolean[]>
-	export declare type Require = <MM extends ThreadExports, DD extends ThreadData>(threadName: string) => Promise<Thread<MM, DD>>
-	export declare type GetThreadReferenceData = (threadName: string) => Promise<ThreadInfo>
-
-	export declare type Type = {
-		runQueue: RunQueue
-		stopExecution: StopExecution,
-		require: Require
-		_getThreadReferenceData: GetThreadReferenceData
-	}
-}
+export type UnknownFunction = (...args: any[]) => Promise<any>;
 
 
-export declare type ThreadInfo = {
+export type ThreadInfo = {
 	messagePort: MessagePort;
 	workerData: {
 		sharedArrayBuffer: SharedArrayBuffer;
@@ -57,34 +43,42 @@ export declare type ThreadInfo = {
 	transfers: [MessagePort];
 };
 
-export declare namespace Messages {
-	export declare type Reject = {
+export type InternalFunctions = {
+	runQueue: () => Promise<number | number[]>;
+	stopExecution: () => Promise<boolean | boolean[]>;
+	require: <MM extends ThreadExports, DD extends ThreadData>(threadName: string) => Promise<Thread<MM, DD>>
+	_getThreadReferenceData: (threadName: string) => Promise<ThreadInfo>
+}
+
+export type Messages = {
+	Reject: {
 		type: "reject"
 		data: Error
 		promiseKey: number
-	}
-	export declare type Resolve = {
+	};
+	Resolve: {
 		type: "resolve"
 		data: Array<unknown>
 		promiseKey: number
-	}
-	export declare type Event = {
+	};
+	Event: {
 		type: "event"
 		eventName: string
 		args: Array<unknown>
 		promiseKey: number
-	}
-	export declare type Call = {
+	};
+	Call: {
 		func: keyof ThreadExports
 		type: "call"
 		data: Array<unknown>
 		promiseKey: number
-	}
-	export declare type Queue = {
+	};
+	Queue: {
 		func: keyof ThreadExports
 		type: "queue"
 		data: Array<unknown>
 		promiseKey: number
-	}
-	export declare type AnyMessage = Reject | Resolve | Event | Call | Queue
+	};
 }
+
+export type AnyMessage = Messages[keyof Messages];
