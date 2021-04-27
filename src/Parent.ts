@@ -1,8 +1,6 @@
 import { Worker } from "worker_threads";
 import path from "path";
 
-const threadPath = path.join(__dirname, "./Thread.js").replace(/\\/g, "\\\\");
-
 import { Thread } from "./Thread";
 
 import { ThreadExports, ThreadOptions, PromisefulModule } from "./Types";
@@ -31,8 +29,8 @@ export class ParentClass<M extends ThreadExports = ThreadExports, D = undefined>
 		super(
 			new Worker(`
 					const { parentPort, workerData } = require('worker_threads');
-					module.thread = new (require('${threadPath}').Thread)(parentPort, workerData);
-					${options.eval?threadInfo:`module.exports = require('${threadInfo.replace(/\\/g, "\\\\")}')`}
+					module.thread = new (require('${path.join(__dirname, "./Thread.js").replace(/\\/g, "\\\\")}').Thread)(parentPort, workerData);
+					${options.eval ? threadInfo : `module.exports = require('${threadInfo = path.join(__dirname, threadInfo).replace(/\\/g, "\\\\")}')`}
 				`, 
 			{ workerData: options, eval: true }
 			),

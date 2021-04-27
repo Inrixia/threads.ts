@@ -265,7 +265,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		if (!module.loaded) await moduleLoaded;
 
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		if (require.main!.exports[message.func] !== undefined) theProperty = require.main!.exports[message.func];
+		if (module.parent!.exports[message.func] !== undefined) theProperty = module.parent!.exports[message.func];
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		else if (this._internalFunctions && this._internalFunctions[message.func as keyof InternalFunctions] !== undefined) theProperty = this._internalFunctions[message.func as keyof InternalFunctions];
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
