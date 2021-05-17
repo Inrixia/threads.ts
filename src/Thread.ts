@@ -2,7 +2,7 @@ import { isMainThread, workerData, MessageChannel, MessagePort, Worker } from "w
 import { ThreadStore } from "./ThreadStore";
 import type ParentPool from "./ParentPool";
 
-import type { UnknownFunction, ThreadInfo, ThreadOptions, Messages, ThreadExports, ThreadData, InternalFunctions, AnyMessage } from "./Types";
+import type { UnknownFunction, ThreadInfo, ThreadOptions, Messages, ThreadExports, ThreadData, AnyMessage, PromisefulModule } from "./Types";
 
 // Wrap around the `module.loaded` param so we only run functions after this module has finished loading
 let _moduleLoaded = false;
@@ -132,20 +132,20 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	/**
 	 * Stops execution of the function queue.
 	 */
-	public stopExecution: InternalFunctions["stopExecution"] = async () => this._stopExecution = true
+	public stopExecution = async (): Promise<true> => this._stopExecution = true
 
 	/**
 	 * Imports a reference to a running thread by its threadName,
-	 * @example // To load a reference to the thread running file `./somepath/helloWorld.js`
-	 * const helloWorldThread = thisThread.require('helloWorld.js')
-	 * thisThread.threads['helloWorld.js'] // Also set to the thread reference for non async access
+	 * @example // To load a reference to the thread running file `./somepath/helloWorld`
+	 * const helloWorldThread = thisThread.require('helloWorld')
+	 * thisThread.threads['helloWorld'] // Also set to the thread reference for non async access
 	 */
-	public require: InternalFunctions["require"] = async <MM extends ThreadExports, DD extends ThreadData>(threadName: string): Promise<Thread<MM, DD>> => {
+	public require = async <MM extends ThreadExports, DD extends ThreadData = undefined>(threadName: string): Promise<PromisefulModule<MM> & Thread<MM, DD>> => {
 		if (this.importedThreads[threadName] == undefined) {
 			const threadResources = await this._callThreadFunction("_getThreadReferenceData", [threadName]) as ThreadInfo;
 			this.importedThreads[threadName] = new Thread(threadResources.messagePort, threadResources.workerData);
 		}
-		return this.importedThreads[threadName] as unknown as Thread<MM, DD>;
+		return this.importedThreads[threadName] as unknown as PromisefulModule<MM> & Thread<MM, DD>;
 	}
 
 	/**
@@ -153,7 +153,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * Returns the new `messagePort` and this threads `workerData`.
 	 * @returns {{MessagePort: MessagePort, workerData:{sharedArrayBuffer:SharedArrayBuffer} Transfers: [MessagePort]}} Object containing data needed to reference this thread.
 	 */
-	private _getThreadReferenceData: InternalFunctions["_getThreadReferenceData"] = async (threadName: string): Promise<ThreadInfo> => {
+	private _getThreadReferenceData = async (threadName: string): Promise<ThreadInfo> => {
 		if (Thread.spawnedThreads[threadName] !== undefined) return await Thread.spawnedThreads[threadName][0]._callThreadFunction("_getThreadReferenceData", []) as ThreadInfo;
 		if (isMainThread && Thread.spawnedThreads[threadName] == undefined) {
 			throw new Error(`Thread ${threadName} has not been spawned! Spawned Threads: ${JSON.stringify(Object.keys(Thread.spawnedThreads))}`);

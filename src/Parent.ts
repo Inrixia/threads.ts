@@ -14,8 +14,8 @@ import { ThreadExports, ThreadOptions, PromisefulModule } from "./Types";
  * @param {SharedArrayBuffer} [options.sharedArrayBuffer] Shared array buffer to use for thread.
  * @param {*} [options.data] Data to be passed to thread as module.parent.thread.data
  */
-export const Parent = <M extends ThreadExports, D = undefined>(...args: [threadInfo: string, options?: ThreadOptions<D>]): PromisefulModule<M> & ParentClass<M, D> => new ParentClass(...args) as unknown as PromisefulModule<M> & ParentClass<M, D>;
-export class ParentClass<M extends ThreadExports = ThreadExports, D = undefined> extends Thread<M, D> {
+export const Parent = <M extends ThreadExports, D = unknown>(...args: [threadInfo: string, options?: ThreadOptions<D>]): PromisefulModule<M> & ParentClass<M, D> => new ParentClass(...args) as unknown as PromisefulModule<M> & ParentClass<M, D>;
+export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> extends Thread<M, D> {
 	/**
 	 * Spawns a new `childThread` and returns a class to interface with it.
 	 * @param {string} threadInfo File, Module name or stringified code for thread to run.
