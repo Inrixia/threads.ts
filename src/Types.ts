@@ -9,7 +9,11 @@ type UnsafeParameters<T> = T extends (...args: infer P) => any ? P : never;
 
 export type PromisefulModule<M extends ThreadExports> = { 
 	// eslint-disable-next-line @typescript-eslint/ban-types
-	[K in keyof M]: M[K] extends Function ? (...args: UnsafeParameters<M[K]>) => Promise<UnsafeReturnType<M[K]>> : () => Promise<M[K]>
+	[K in keyof M]: M[K] extends Function ? 
+		UnsafeReturnType<M[K]> extends PromiseLike<unknown> ?
+			(...args: UnsafeParameters<M[K]>) => UnsafeReturnType<M[K]>
+			: (...args: UnsafeParameters<M[K]>) => Promise<UnsafeReturnType<M[K]>>
+		: () => Promise<M[K]>
 }
 
 export type ThreadExports = {
@@ -42,13 +46,6 @@ export type ThreadInfo = {
 	};
 	transfers: [MessagePort];
 };
-
-export type InternalFunctions = {
-	runQueue: () => Promise<number | number[]>;
-	stopExecution: () => Promise<boolean | boolean[]>;
-	require: <MM extends ThreadExports, DD extends ThreadData>(threadName: string) => Promise<Thread<MM, DD>>
-	_getThreadReferenceData: (threadName: string) => Promise<ThreadInfo>
-}
 
 export type Messages = {
 	Reject: {
