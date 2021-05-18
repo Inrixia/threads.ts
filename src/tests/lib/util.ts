@@ -1,10 +1,7 @@
-import * as smol from "./smol";
-
 import { Parent } from "../../Parent";
 
-import path from "path";
-
-const subChild = Parent<typeof smol>(path.join(__dirname, "./smol"));// as unknown as typeof smol & Parent<typeof smol>;
+import type * as smol from "./smol";
+const subChild = Parent<typeof smol>("./smol");// as unknown as typeof smol & Parent<typeof smol>;
 
 (async () => {
 	console.log(await subChild.smol(1));

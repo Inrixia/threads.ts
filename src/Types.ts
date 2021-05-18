@@ -2,6 +2,13 @@ import { MessagePort } from "worker_threads";
 
 import type { Thread } from "./Thread";
 
+export type InternalFunctions = {
+	runQueue: Thread["_runQueue"];
+	stopExecution: Thread["stopExecution"];
+	require: Thread["require"]
+	_getThreadReferenceData: Thread["_getThreadReferenceData"]
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type UnsafeReturnType<T> = T extends (...args: any[]) => infer R ? R : any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,7 +21,7 @@ export type PromisefulModule<M extends ThreadExports> = {
 			(...args: UnsafeParameters<M[K]>) => UnsafeReturnType<M[K]>
 			: (...args: UnsafeParameters<M[K]>) => Promise<UnsafeReturnType<M[K]>>
 		: () => Promise<M[K]>
-}
+} & InternalFunctions
 
 export type ThreadExports = {
 	[key: string]: unknown
@@ -28,7 +35,7 @@ export type ThreadModule<E extends ThreadExports = ThreadExports, D = unknown> =
 }
 
 export type ThreadOptions<T> = {
-	name?: string;
+	threadInfo?: string;
 	eval?: boolean;
 	sharedArrayBuffer?: SharedArrayBuffer;
 	data?: T;

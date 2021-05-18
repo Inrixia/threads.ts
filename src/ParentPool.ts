@@ -2,7 +2,7 @@ import { Thread } from "./Thread";
 // import ThreadStore from "./ThreadStore";
 import { ParentClass } from "./Parent";
 
-import { ThreadOptions, InternalFunctions, UnknownFunction, ThreadExports } from "./Types";
+import { ThreadOptions, ThreadExports } from "./Types";
 
 export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D> {
 	private _threadSelect: number;
@@ -31,10 +31,9 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 		this._subThreads = [];
 		this._threadSelect = 0;
 
-		Thread.addThread(options.name || threadInfo, this);
+		Thread.addThread(threadInfo, this);
 
 		this.randomID = Math.random();
-		this.name = options.name;
 		this.threadInfo = threadInfo;
 
 		this.pool = true;
@@ -43,7 +42,7 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 		for (let i = 0; i < options.count; i++)
 			this._subThreads.push(
 				new ParentClass(threadInfo, {
-					name: `${options.name}_${i}_${this.randomID}`,
+					threadInfo: `${threadInfo}_${i}`,
 					eval: options.eval,
 					sharedArrayBuffer: this._sharedArrayBuffer,
 					data: options.data,
@@ -77,20 +76,20 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 		throw new Error("Cannot set property \"threadSelect\" on a ParentPool.");
 	}
 
-	/**
-	 * Runs thread queues.
-	 * @returns functions run.
-	 */
-	runQueue: InternalFunctions["runQueue"] = async () => (await this._forAllThreads("runQueue")) as number[];
-	/**
-	 * Stops execution of the function queues.
-	 */
-	stopExecution: InternalFunctions["stopExecution"] = async () => (await this._forAllThreads("stopExecution")) as boolean[];
+	// /**
+	//  * Runs thread queues.
+	//  * @returns functions run.
+	//  */
+	// runQueue = (): Promise<Array<number>> => this._forAllThreads("runQueue");
+	// /**
+	//  * Stops execution of the function queues.
+	//  */
+	// stopAllExecution = (): Promise<Array<true>> => this._forAllThreads("stopExecution");
 
-	/**
-	 * Calls a function on all threads.
-	 * @param {string} func Name of function to call.
-	 * @param {*} ...args Arguments to pass to function.
-	 */
-	_forAllThreads = (func: string, ...args: unknown[]): Promise<unknown[]> => Promise.all(this._subThreads.map(thread => (thread as ParentClass<M, D> & { [key: string]: UnknownFunction })[func](...args)));
+	// /**
+	//  * Calls a function on all threads.
+	//  * @param {string} func Name of function to call.
+	//  * @param {*} ...args Arguments to pass to function.
+	//  */
+	// _forAllThreads = <F = keyof ParentPool<M, D>>(func: F, ...args: Parameters<ParentPool<M, D>[F]>): ReturnType<ParentPool<M, D>[F]> => Promise.all(this._subThreads.map(thread => (thread as ParentClass<M, D> & { [key: string]: UnknownFunction })[func](...args)));
 }
