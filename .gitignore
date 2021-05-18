@@ -13,3 +13,5 @@ desktop.ini
 # Dependency directories
 node_modules/
 *.tgz
+
+dist/

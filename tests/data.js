@@ -1,1 +1,0 @@
-module.exports._data = async () => module.parent.thread.data
