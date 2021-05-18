@@ -3,7 +3,10 @@
   "version": "2.0.0",
   "description": "Node threading library",
   "scripts": {
-    "test": "tsc && node ./dist/tests/testRunner.js"
+    "test": "tsc && node ./dist/tests/testRunner.js",
+    "tsc": "tsc && copy /Y package.json dist && copy /Y .npmignore dist",
+    "send": "npm run tsc && cd ./dist && npm publish",
+    "send-dry": "npm run tsc && cd ./dist && npm publish --dry-run"
   },
   "repository": {
     "type": "git",
