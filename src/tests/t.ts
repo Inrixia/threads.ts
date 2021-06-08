@@ -18,6 +18,9 @@ crashingThread.exited.then(e => console.log("exited", e)).catch(console.log);
 	// crashingThread.exit(12);
 	console.log(await crashingThread.exited);
 	console.log("Hello World");
+
+	console.log(crashingThread.normalFunc());
+	console.log("DONE!");
 })();
 
 

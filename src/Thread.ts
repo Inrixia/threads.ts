@@ -59,6 +59,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	} = {}
 
 	public exited: Promise<number>;
+	private _exited: boolean;
 	private _exitResolve!: (code: number) => void;
 	private _exitReject!: (err: Error) => void;
 
@@ -82,10 +83,23 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		this._functionQueue = [];
 
 		this._stopExecution = false;
-
+		
+		this._exited = false;
 		this.exited = new Promise((resolve, reject) => {
 			this._exitResolve = resolve;
 			this._exitReject = reject;
+		});
+		this.exited.then(exitCode => {
+			this._exited = true;
+			for (const { reject } of Object.values(this._promises)) {
+				reject(new Error(`Worker exited with code ${exitCode}`));
+			}
+		});
+		this.exited.catch(error => {
+			this._exited = true;
+			for (const { reject } of Object.values(this._promises)) {
+				reject(error);
+			}
 		});
 
 		if (workerPort === false) return this;
@@ -104,6 +118,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		return new Proxy(this, {
 			get: (target, key: string, receiver) => {
 				if ((target as unknown as { [key: string]: unknown })[key] === undefined && key !== "then") {
+					if (this._exited === true) throw new Error("Thread has exited. Check thread.exited for more info...");
 					return (...args: unknown[]) => this._callThreadFunction(key, args);
 				} else return Reflect.get(target, key, receiver);
 			}
