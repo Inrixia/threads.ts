@@ -38,6 +38,9 @@ const testsDir = "../dist/tests";
 	// Patch data.test.ts
 	const unPatchData = await patchFile("./data.test.ts", [["./lib/data.js", `../${testsDir}/lib/data.js`]]);
 
+	// Patch exit.test.ts
+	const unPatchExit = await patchFile("./exit.test.ts", [["./lib/error.js", `../${testsDir}/lib/error.js`], ["./lib/exit.js", `../${testsDir}/lib/exit.js`]]);
+
 	// Patch general.test.ts
 	const unPathGeneral = await patchFile("./general.test.ts", [["./lib/child.js", `../${testsDir}/lib/child.js`], ["./lib/smol.js", `../${testsDir}/lib/smol.js`]]);
 	const unPatchChild = await patchFile("./lib/child.ts", [["./child.js", `../../${testsDir}/lib/child.js`], ["./smol.js", `../../${testsDir}/lib/smol.js`]]);
@@ -45,6 +48,7 @@ const testsDir = "../dist/tests";
 	await runTests().catch(() => false);
 
 	// UnPatch files...
+	await unPatchExit();
 	await unPatchParent();
 	await unPatchData();
 	await unPathGeneral();

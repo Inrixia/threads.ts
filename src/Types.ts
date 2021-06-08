@@ -47,7 +47,7 @@ export type UnknownFunction = (...args: any[]) => Promise<any>;
 
 
 export type ThreadInfo = {
-	messagePort: MessagePort;
+	workerPort: MessagePort;
 	workerData: {
 		sharedArrayBuffer: SharedArrayBuffer;
 	};
@@ -56,33 +56,41 @@ export type ThreadInfo = {
 
 export type Messages = {
 	Reject: {
-		type: "reject"
-		data: Error
-		promiseKey: number
+		type: "reject";
+		data: Error;
+		promiseKey: number;
 	};
 	Resolve: {
-		type: "resolve"
-		data: Array<unknown>
-		promiseKey: number
+		type: "resolve";
+		data: Array<unknown>;
+		promiseKey: number;
 	};
 	Event: {
-		type: "event"
-		eventName: string
-		args: Array<unknown>
-		promiseKey: number
+		type: "event";
+		eventName: string;
+		args: Array<unknown>;
+		promiseKey: number;
 	};
 	Call: {
-		func: keyof ThreadExports
-		type: "call"
-		data: Array<unknown>
-		promiseKey: number
+		func: keyof ThreadExports;
+		type: "call";
+		data: Array<unknown>;
+		promiseKey: number;
 	};
 	Queue: {
-		func: keyof ThreadExports
-		type: "queue"
-		data: Array<unknown>
-		promiseKey: number
+		func: keyof ThreadExports;
+		type: "queue";
+		data: Array<unknown>;
+		promiseKey: number;
 	};
-}
+	UncaughtErr: {
+		type: "uncaughtErr";
+		err: Error;
+	};
+	Exit: {
+		type: "exit";
+		code: number;
+	};
+};
 
 export type AnyMessage = Messages[keyof Messages];

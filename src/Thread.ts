@@ -28,7 +28,7 @@ type FunctionHandler = (message: Messages["Call"] | Messages["Queue"]) => Promis
 
 export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadData = undefined> extends EventEmitter {
 	private _threadStore: ThreadStore;
-	private messagePort?: MessagePort | Worker;
+	public workerPort?: MessagePort | Worker;
 	public data?: D;
 	public threadInfo?: string;
 
@@ -58,13 +58,17 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		[key: string]: Array<Thread<ThreadExports, ThreadData>>
 	} = {}
 
+	public exited: Promise<number>;
+	private _exitResolve!: (code: number) => void;
+	private _exitReject!: (err: Error) => void;
+
 	/**
 	 * Returns a promise containing a constructed `Thread`.
-	 * @param {MessagePort} messagePort Port the thread will communicate on
+	 * @param {MessagePort} workerPort Port the thread will communicate on
 	 * @param {Object} options Data passed to thread on start
 	 * @param {SharedArrayBuffer} options.sharedArrayBuffer Shared memory containing thread parameters
 	 */
-	constructor(messagePort: Worker | MessagePort | false, options: ThreadOptions<D>) {
+	constructor(workerPort: Worker | MessagePort | false, options: ThreadOptions<D>) {
 		super();
 		this._sharedArrayBuffer = options.sharedArrayBuffer || new SharedArrayBuffer(16);
 		this._threadStore = new ThreadStore(this._sharedArrayBuffer);
@@ -79,8 +83,13 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 
 		this._stopExecution = false;
 
-		if (messagePort === false) return this;
-		this.messagePort = messagePort;
+		this.exited = new Promise((resolve, reject) => {
+			this._exitResolve = resolve;
+			this._exitReject = reject;
+		});
+
+		if (workerPort === false) return this;
+		this.workerPort = workerPort;
 
 		this._internalFunctions = {
 			runQueue: this._runQueue, 
@@ -90,7 +99,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		};
 
 		// Create an eventlistener for handling thread events
-		this.messagePort.on("message", this._messageHandler(this.messagePort));
+		this.workerPort.on("message", this._messageHandler(this.workerPort));
 
 		return new Proxy(this, {
 			get: (target, key: string, receiver) => {
@@ -114,14 +123,14 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	//
 	// General Functions
 	//
-	public terminate = (): Promise<number> => (this.messagePort as Worker).terminate();
+	public terminate = (): Promise<number> => (this.workerPort as Worker).terminate();
 
 	//
 	// Event Functions
 	//
 	public emit = (eventName: string, ...args: Array<unknown>): boolean => {
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		this.messagePort!.postMessage({ type: "event", eventName, args });
+		this.workerPort!.postMessage({ type: "event", eventName, args });
 		return super.emit(eventName, ...args);
 	}
 
@@ -145,14 +154,14 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		threadName = path.join(path.dirname(this.threadInfo), threadName).replace(/\\/g, "/");
 		if (this.importedThreads[threadName] == undefined) {
 			const threadResources = await this._callThreadFunction("_getThreadReferenceData", [threadName]) as ThreadInfo;
-			this.importedThreads[threadName] = new Thread(threadResources.messagePort, threadResources.workerData);
+			this.importedThreads[threadName] = new Thread(threadResources.workerPort, threadResources.workerData);
 		}
 		return this.importedThreads[threadName] as unknown as PromisefulModule<MM> & Thread<MM, DD>;
 	}
 
 	/**
-	 * Creates a new `messagePort` for xThread communication, handled by `_messageHandler`.
-	 * Returns the new `messagePort` and this threads `workerData`.
+	 * Creates a new `workerPort` for xThread communication, handled by `_messageHandler`.
+	 * Returns the new `workerPort` and this threads `workerData`.
 	 * @returns {{MessagePort: MessagePort, workerData:{sharedArrayBuffer:SharedArrayBuffer} Transfers: [MessagePort]}} Object containing data needed to reference this thread.
 	 */
 	public _getThreadReferenceData = async (threadName: string): Promise<ThreadInfo> => {
@@ -162,7 +171,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		}
 		const { port1, port2 } = new MessageChannel();
 		port2.on("message", this._messageHandler(port2));
-		return { messagePort: port1, workerData, transfers: [port1] };
+		return { workerPort: port1, workerData, transfers: [port1] };
 	}
 
 	//
@@ -218,13 +227,13 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * @param {Object} message
 	 * @param {string} message.type
 	 */
-	private _messageHandler = (messagePort: MessagePort | Worker): (message: AnyMessage) => void => {
-		const functionHandler = this._functionHandler(messagePort);
+	private _messageHandler = (workerPort: MessagePort | Worker): (message: AnyMessage) => void => {
+		const functionHandler = this._functionHandler(workerPort);
 		return (message: AnyMessage) => {
 			// Call to run a local function
 			switch (message.type) {
 			case "call":
-				functionHandler(message).catch((data: Error) => messagePort.postMessage({
+				functionHandler(message).catch((data: Error) => workerPort.postMessage({
 					type: "reject",
 					data,
 					promiseKey: message.promiseKey
@@ -245,11 +254,20 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 				super.emit(message.eventName, ...message.args);
 				break;
 			case "queue":
-				this._queueSelfFunction(message, functionHandler).catch((data: Error) => messagePort.postMessage({ 
+				this._queueSelfFunction(message, functionHandler).catch((data: Error) => workerPort.postMessage({ 
 					type: "reject",
 					data,
 					promiseKey: message.promiseKey
 				} as Messages["Reject"]));
+				break;
+			case "uncaughtErr":
+				if (message.err.stack) { // Build a special stacktrace that contains all thread info
+					message.err.stack = message.err.stack.replace(/\[worker eval\]/g, this.threadInfo as string);
+				}
+				this._exitReject(message.err);
+				break;
+			case "exit":
+				this._exitResolve(message.code);
 				break;
 			}
 		};
@@ -257,10 +275,10 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 
 	/**
 	 * Returns a function for handling xThread funciton calls.
-	 * @param messagePort the port calls are handled over.
+	 * @param workerPort the port calls are handled over.
 	 * @returns xThread function handler.
 	 */
-	private _functionHandler = (messagePort: MessagePort | Worker) => async (message: Messages["Call"] | Messages["Queue"]): Promise<void> => {
+	private _functionHandler = (workerPort: MessagePort | Worker) => async (message: Messages["Call"] | Messages["Queue"]): Promise<void> => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		let theProperty: any, funcToExec: UnknownFunction;
 
@@ -279,12 +297,12 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		this.working++;
 		await funcToExec(...message.data)
 			.then(
-				data => messagePort.postMessage({ 
+				data => workerPort.postMessage({ 
 					type: "resolve",
 					data,
 					promiseKey: message.promiseKey
 				}, data?.transfers||[]),
-				data => messagePort.postMessage({ 
+				data => workerPort.postMessage({ 
 					type: "reject",
 					data,
 					promiseKey: message.promiseKey
@@ -316,7 +334,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		});
 		// Ask the thread to execute/queue the function
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		this.messagePort!.postMessage({
+		this.workerPort!.postMessage({
 			type, 
 			func,
 			data,

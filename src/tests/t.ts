@@ -1,6 +1,15 @@
-// const path = require('path')
-// const { Parent, ParentPool, Thread } = require('../index.js')
+import { Parent } from "../";
+import type * as ExitThread from "./lib/exit";
 
+const crashingThread = Parent<typeof ExitThread>("./lib/exit");
+crashingThread.exited
+	.then(() => {
+		console.log("exited");
+	})
+	.catch(() => {
+		console.log("errored");
+	});
+crashingThread.exit(12);
 // if (false) (() => {
 // 	const child = new Parent(path.join(__dirname, './lib/child.js'), { name: 'child' })
 
