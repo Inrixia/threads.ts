@@ -123,7 +123,12 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	//
 	// General Functions
 	//
-	public terminate = (): Promise<number> => (this.workerPort as Worker).terminate();
+	public terminate = async (): Promise<number> => {
+		if (this.workerPort === undefined) throw new Error("Worker does not exist!");
+		const exitCode = await (this.workerPort as Worker).terminate();
+		this._exitResolve(exitCode);
+		return exitCode;
+	}
 
 	//
 	// Event Functions

@@ -1,15 +1,26 @@
 import { Parent } from "../";
-import type * as ExitThread from "./lib/exit";
 
-const crashingThread = Parent<typeof ExitThread>("./lib/exit");
-crashingThread.exited
-	.then(() => {
-		console.log("exited");
-	})
-	.catch(() => {
-		console.log("errored");
-	});
-crashingThread.exit(12);
+// const crashingThread = Parent("./lib/error");
+// crashingThread.exited.catch(() => console.log("errored"));
+
+// setTimeout(() => {
+// 	(async () => {
+// 		const exitResult = await crashingThread.exited.catch(() => null);
+// 		console.log(await crashingThread.terminate());
+// 		console.log("Ok done now!");
+// 	})();
+// }, 1000);
+const crashingThread = Parent("./lib/exit");
+crashingThread.exited.then(e => console.log("exited", e)).catch(console.log);
+(async () => {
+	console.log(await crashingThread.terminate());
+	console.log("Hello World", crashingThread.exited);
+	// crashingThread.exit(12);
+	console.log(await crashingThread.exited);
+	console.log("Hello World");
+})();
+
+
 // if (false) (() => {
 // 	const child = new Parent(path.join(__dirname, './lib/child.js'), { name: 'child' })
 
