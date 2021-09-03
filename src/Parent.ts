@@ -15,7 +15,9 @@ import { ThreadExports, ThreadOptions, PromisefulModule } from "./Types";
  * @param {SharedArrayBuffer} [options.sharedArrayBuffer] Shared array buffer to use for thread.
  * @param {*} [options.data] Data to be passed to thread as module.parent.thread.data
  */
-export const Parent = <M extends ThreadExports, D = unknown>(...args: [threadInfo: string, options?: ThreadOptions<D>]): PromisefulModule<M> & ParentClass<M, D> => new ParentClass(...args) as unknown as PromisefulModule<M> & ParentClass<M, D>;
+export const Parent = <M extends ThreadExports, D = unknown>(
+	...args: [threadInfo: string, options?: ThreadOptions<D>]
+): PromisefulModule<M> & ParentClass<M, D> => new ParentClass(...args) as unknown as PromisefulModule<M> & ParentClass<M, D>;
 export type ParentThread<M extends ThreadExports, D = unknown> = PromisefulModule<M> & ParentClass<M, D>;
 export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> extends Thread<M, D> {
 	/**
@@ -28,7 +30,8 @@ export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> e
 	 */
 	constructor(threadInfo: string, options: ThreadOptions<D> = {}) {
 		super(
-			new Worker(`
+			new Worker(
+				`
 					const { parentPort, workerData } = require('worker_threads');
 					const onErr = err => {
 						parentPort.postMessage({ type: "uncaughtErr", err })
@@ -42,13 +45,14 @@ export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> e
 						if (options.eval) return threadInfo;
 						else {
 							const rootPath = require.main?.filename || module.parent?.parent?.filename;
-							if (rootPath === undefined) throw new Error(`Trying to spawn thread ${threadInfo}... But require.main.filename & module.parent?.parent?.filename is undefined!`);
+							if (rootPath === undefined)
+								throw new Error(`Trying to spawn thread ${threadInfo}... But require.main.filename & module.parent?.parent?.filename is undefined!`);
 							options.threadInfo = threadInfo = path.join(path.dirname(rootPath), threadInfo).replace(/\\/g, "/");
 							return `module.exports = require('${options.threadInfo}')`;
 						}
 					})()}
 				`,
-			{ workerData: options, eval: true }
+				{ workerData: options, eval: true }
 			),
 			options
 		);

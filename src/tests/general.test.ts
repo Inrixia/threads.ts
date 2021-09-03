@@ -22,7 +22,9 @@ test("Queues and runs two functions", () => {
 test("Requires and runs a function in one thread from another", () => {
 	const child = Parent<typeof Child>("./lib/child.js");
 	const smol = Parent<typeof Smol>("./lib/smol.js");
-	return expect(child.smol(1)).resolves.toBe(2).finally(() => child.terminate() && smol.terminate());
+	return expect(child.smol(1))
+		.resolves.toBe(2)
+		.finally(async () => (await child.terminate()) && smol.terminate());
 });
 
 // test("Spawns a ParentPool for child and runs four functions", () => {
@@ -38,9 +40,11 @@ test("Requires and runs a function in one thread from another", () => {
 
 test("Emits a event to a thread and expects another emitted back with the same arguments", () => {
 	const child = Parent<typeof Child>("./lib/child.js");
-	const result = new Promise(res => {
+	const result = new Promise((res) => {
 		child.on("eventFromChild", (...args) => res(JSON.stringify(args)));
 		child.emit("eventFromParent", "Hello World", [1, 2, 3]);
 	});
-	return expect(result).resolves.toBe(JSON.stringify(["Hello World", [1, 2, 3]])).finally(child.terminate);
+	return expect(result)
+		.resolves.toBe(JSON.stringify(["Hello World", [1, 2, 3]]))
+		.finally(child.terminate);
 });
