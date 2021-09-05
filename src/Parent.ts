@@ -45,7 +45,7 @@ export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> e
 						if (options.eval) return threadInfo;
 						else {
 							try {
-								options.threadInfo = require.resolve(threadInfo);
+								options.threadInfo = require.resolve(threadInfo).replace(/\\/g, "\\\\");
 							} catch (err) {
 								const rootPath = require.main?.filename || module.parent?.parent?.filename;
 								if (rootPath === undefined)
