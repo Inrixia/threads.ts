@@ -6,25 +6,24 @@ import type { UnknownFunction, ThreadInfo, ThreadOptions, Messages, ThreadExport
 
 // Wrap around the `module.loaded` param so we only run functions after this module has finished loading
 let _moduleLoaded = false;
-const moduleLoaded: Promise<boolean> = new Promise(resolve => {
+const moduleLoaded: Promise<boolean> = new Promise((resolve) => {
 	_moduleLoaded = module.loaded;
 	Object.defineProperty(module, "loaded", {
 		get: () => {
 			if (_moduleLoaded) resolve(true);
 			return _moduleLoaded;
 		},
-		set: value => {
+		set: (value) => {
 			if (_moduleLoaded) resolve(true);
 			_moduleLoaded = value;
-		}
+		},
 	});
 });
 
 import { EventEmitter } from "events";
 import path from "path";
 
-
-type FunctionHandler = (message: Messages["Call"] | Messages["Queue"]) => Promise<void>
+type FunctionHandler = (message: Messages["Call"] | Messages["Queue"]) => Promise<void>;
 
 export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadData = undefined> extends EventEmitter {
 	private _threadStore: ThreadStore;
@@ -34,29 +33,29 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 
 	protected _sharedArrayBuffer: SharedArrayBuffer;
 
-	private _promises: { 
-		[key: string]: { 
-			resolve: (value: unknown) => void, 
-			reject: (reason: Error) => void 
-		}
-	}
+	private _promises: {
+		[key: string]: {
+			resolve: (value: unknown) => void;
+			reject: (reason: Error) => void;
+		};
+	};
 	private _promiseKey: number;
 	private _functionQueue: {
-		functionHandler: FunctionHandler
-		message: Messages["Call"] | Messages["Queue"]
-	}[]
+		functionHandler: FunctionHandler;
+		message: Messages["Call"] | Messages["Queue"];
+	}[];
 
-	private _stopExecution: boolean
+	private _stopExecution: boolean;
 
-	public importedThreads: { 
-		[key: string]: Thread<ThreadExports, ThreadData>
-	}
+	public importedThreads: {
+		[key: string]: Thread<ThreadExports, ThreadData>;
+	};
 
 	private _internalFunctions?: InternalFunctions;
 
-	public static spawnedThreads: { 
-		[key: string]: Array<Thread<ThreadExports, ThreadData>>
-	} = {}
+	public static spawnedThreads: {
+		[key: string]: Array<Thread<ThreadExports, ThreadData>>;
+	} = {};
 
 	public exited: Promise<number>;
 	private _exited: boolean;
@@ -76,26 +75,26 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		this.importedThreads = {};
 
 		this.data = options.data;
-		this.threadInfo = options.threadInfo;
+		this.threadInfo = options.threadModule;
 
 		this._promises = {};
 		this._promiseKey = 0;
 		this._functionQueue = [];
 
 		this._stopExecution = false;
-		
+
 		this._exited = false;
 		this.exited = new Promise((resolve, reject) => {
 			this._exitResolve = resolve;
 			this._exitReject = reject;
 		});
-		this.exited.then(exitCode => {
+		this.exited.then((exitCode) => {
 			this._exited = true;
 			for (const { reject } of Object.values(this._promises)) {
 				reject(new Error(`Worker exited with code ${exitCode}`));
 			}
 		});
-		this.exited.catch(error => {
+		this.exited.catch((error) => {
 			this._exited = true;
 			for (const { reject } of Object.values(this._promises)) {
 				reject(error);
@@ -106,10 +105,10 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		this.workerPort = workerPort;
 
 		this._internalFunctions = {
-			runQueue: this._runQueue, 
-			stopExecution: this.stopExecution, 
-			require: this.require, 
-			_getThreadReferenceData: this._getThreadReferenceData
+			runQueue: this._runQueue,
+			stopExecution: this.stopExecution,
+			require: this.require,
+			_getThreadReferenceData: this._getThreadReferenceData,
 		};
 
 		// Create an eventlistener for handling thread events
@@ -121,19 +120,22 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 					if (this._exited === true) throw new Error("Thread has exited. Check thread.exited for more info...");
 					return (...args: unknown[]) => this._callThreadFunction(key, args);
 				} else return Reflect.get(target, key, receiver);
-			}
+			},
 		});
 	}
 
 	// Proxy this and the queue so any function calls are translated to thread calls
 	public queue = new Proxy({} as M, {
-		get: (_target, key: string) => (...args: unknown[]) => this._callThreadFunction(key, args, "queue")
+		get:
+			(_target, key: string) =>
+			(...args: unknown[]) =>
+				this._callThreadFunction(key, args, "queue"),
 	});
 
 	static addThread = (threadName: string, thread: Thread<ThreadExports, ThreadData> | ParentPool<ThreadExports, ThreadData>): void => {
-		if (Thread.spawnedThreads[threadName] === undefined) Thread.spawnedThreads[threadName] = [ thread ];
+		if (Thread.spawnedThreads[threadName] === undefined) Thread.spawnedThreads[threadName] = [thread];
 		// else Thread.spawnedThreads[threadName].push(thread)
-	}
+	};
 
 	//
 	// General Functions
@@ -143,7 +145,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		const exitCode = await (this.workerPort as Worker).terminate();
 		this._exitResolve(exitCode);
 		return exitCode;
-	}
+	};
 
 	//
 	// Event Functions
@@ -152,7 +154,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		this.workerPort!.postMessage({ type: "event", eventName, args });
 		return super.emit(eventName, ...args);
-	}
+	};
 
 	//
 	// Exported functions
@@ -161,7 +163,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	/**
 	 * Stops execution of the function queue.
 	 */
-	public stopExecution = async (): Promise<true> => this._stopExecution = true
+	public stopExecution = async (): Promise<true> => (this._stopExecution = true);
 
 	/**
 	 * Imports a reference to a running thread by its threadName,
@@ -169,15 +171,17 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * const helloWorldThread = thisThread.require('helloWorld')
 	 * thisThread.threads['helloWorld'] // Also set to the thread reference for non async access
 	 */
-	public require = async <MM extends ThreadExports, DD extends ThreadData = undefined>(threadName: string): Promise<Thread<MM, DD> & Omit<PromisefulModule<MM>, "require">> => {
-		if (this.threadInfo === undefined) throw new Error(`Trying to find threadName: ${threadName}... But this.threadInfo is undefined!`);
-		threadName = path.join(path.dirname(this.threadInfo), threadName).replace(/\\/g, "/");
-		if (this.importedThreads[threadName] == undefined) {
-			const threadResources = await this._callThreadFunction("_getThreadReferenceData", [threadName]) as ThreadInfo;
+	public require = async <MM extends ThreadExports, DD extends ThreadData = undefined>(
+		threadName: string,
+		options?: { isPath?: true }
+	): Promise<Thread<MM, DD> & Omit<PromisefulModule<MM>, "require">> => {
+		if (options?.isPath === true) threadName = path.join(path.dirname(this.threadInfo!), threadName).replace(/\\/g, "/");
+		if (this.importedThreads[threadName] === undefined) {
+			const threadResources = (await this._callThreadFunction("_getThreadReferenceData", [threadName])) as ThreadInfo;
 			this.importedThreads[threadName] = new Thread(threadResources.workerPort, threadResources.workerData);
 		}
 		return this.importedThreads[threadName] as unknown as PromisefulModule<MM> & Thread<MM, DD>;
-	}
+	};
 
 	/**
 	 * Creates a new `workerPort` for xThread communication, handled by `_messageHandler`.
@@ -185,24 +189,33 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * @returns {{MessagePort: MessagePort, workerData:{sharedArrayBuffer:SharedArrayBuffer} Transfers: [MessagePort]}} Object containing data needed to reference this thread.
 	 */
 	public _getThreadReferenceData = async (threadName: string): Promise<ThreadInfo> => {
-		if (Thread.spawnedThreads[threadName] !== undefined) return await Thread.spawnedThreads[threadName][0]._callThreadFunction("_getThreadReferenceData", []) as ThreadInfo;
+		if (Thread.spawnedThreads[threadName] !== undefined)
+			return (await Thread.spawnedThreads[threadName][0]._callThreadFunction("_getThreadReferenceData", [])) as ThreadInfo;
 		if (isMainThread && Thread.spawnedThreads[threadName] == undefined) {
 			throw new Error(`Thread ${threadName} has not been spawned! Spawned Threads: ${JSON.stringify(Object.keys(Thread.spawnedThreads))}`);
 		}
 		const { port1, port2 } = new MessageChannel();
 		port2.on("message", this._messageHandler(port2));
 		return { workerPort: port1, workerData, transfers: [port1] };
-	}
+	};
 
 	//
 	// Thread shared data
 	//
 
-	get working(): number { return this._threadStore.working; }
-	set working(value: number) { this._threadStore.working = value; }
+	get working(): number {
+		return this._threadStore.working;
+	}
+	set working(value: number) {
+		this._threadStore.working = value;
+	}
 
-	get queued(): number { return this._threadStore.queued; }
-	set queued(value: number) { this._threadStore.queued = value; }
+	get queued(): number {
+		return this._threadStore.queued;
+	}
+	set queued(value: number) {
+		this._threadStore.queued = value;
+	}
 
 	//
 	// Thread queue functions
@@ -218,8 +231,8 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	private _queueSelfFunction = async (message: Messages["Queue"] | Messages["Call"], functionHandler: FunctionHandler): Promise<void> => {
 		this._functionQueue.push({ functionHandler, message });
 		this.queued++;
-	}
-	
+	};
+
 	/**
 	 * Runs thread queue.
 	 * @returns {Promise<number>} functions run.
@@ -232,11 +245,11 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 			const info = this._functionQueue.pop();
 			this.queued--;
 			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			await (info!.functionHandler(info!.message));
+			await info!.functionHandler(info!.message);
 			functionsRun++;
 		}
 		return functionsRun;
-	}
+	};
 
 	//
 	// Thread call handling
@@ -247,118 +260,134 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * @param {Object} message
 	 * @param {string} message.type
 	 */
-	private _messageHandler = (workerPort: MessagePort | Worker): (message: AnyMessage) => void => {
+	private _messageHandler = (workerPort: MessagePort | Worker): ((message: AnyMessage) => void) => {
 		const functionHandler = this._functionHandler(workerPort);
 		return (message: AnyMessage) => {
 			// Call to run a local function
 			switch (message.type) {
-			case "call":
-				functionHandler(message).catch((data: Error) => workerPort.postMessage({
-					type: "reject",
-					data,
-					promiseKey: message.promiseKey
-				} as Messages["Reject"]));
-				break;
-			case "resolve":
-				this._promises[message.promiseKey].resolve(message.data);
-				delete this._promises[message.promiseKey];
-				break;
-			case "reject":
-				if (message.data?.stack) { // Build a special stacktrace that contains all thread info
-					message.data.stack = message.data.stack.replace(/\[worker eval\]/g, this.threadInfo as string);
-				}
-				this._promises[message.promiseKey].reject(message.data);
-				delete this._promises[message.promiseKey];
-				break;
-			case "event":
-				super.emit(message.eventName, ...message.args);
-				break;
-			case "queue":
-				this._queueSelfFunction(message, functionHandler).catch((data: Error) => workerPort.postMessage({ 
-					type: "reject",
-					data,
-					promiseKey: message.promiseKey
-				} as Messages["Reject"]));
-				break;
-			case "uncaughtErr":
-				if (message.err.stack) { // Build a special stacktrace that contains all thread info
-					message.err.stack = message.err.stack.replace(/\[worker eval\]/g, this.threadInfo as string);
-				}
-				this._exitReject(message.err);
-				break;
-			case "exit":
-				this._exitResolve(message.code);
-				break;
+				case "call":
+					functionHandler(message).catch((data: Error) =>
+						workerPort.postMessage({
+							type: "reject",
+							data,
+							promiseKey: message.promiseKey,
+						} as Messages["Reject"])
+					);
+					break;
+				case "resolve":
+					this._promises[message.promiseKey].resolve(message.data);
+					delete this._promises[message.promiseKey];
+					break;
+				case "reject":
+					if (message.data?.stack) {
+						// Build a special stacktrace that contains all thread info
+						message.data.stack = message.data.stack.replace(/\[worker eval\]/g, this.threadInfo as string);
+					}
+					this._promises[message.promiseKey].reject(message.data);
+					delete this._promises[message.promiseKey];
+					break;
+				case "event":
+					super.emit(message.eventName, ...message.args);
+					break;
+				case "queue":
+					this._queueSelfFunction(message, functionHandler).catch((data: Error) =>
+						workerPort.postMessage({
+							type: "reject",
+							data,
+							promiseKey: message.promiseKey,
+						} as Messages["Reject"])
+					);
+					break;
+				case "uncaughtErr":
+					if (message.err.stack) {
+						// Build a special stacktrace that contains all thread info
+						message.err.stack = message.err.stack.replace(/\[worker eval\]/g, this.threadInfo as string);
+					}
+					this._exitReject(message.err);
+					break;
+				case "exit":
+					this._exitResolve(message.code);
+					break;
 			}
 		};
-	}
+	};
 
 	/**
 	 * Returns a function for handling xThread funciton calls.
 	 * @param workerPort the port calls are handled over.
 	 * @returns xThread function handler.
 	 */
-	private _functionHandler = (workerPort: MessagePort | Worker) => async (message: Messages["Call"] | Messages["Queue"]): Promise<void> => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		let theProperty: any, funcToExec: UnknownFunction;
+	private _functionHandler =
+		(workerPort: MessagePort | Worker) =>
+		async (message: Messages["Call"] | Messages["Queue"]): Promise<void> => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			let theProperty: any, funcToExec: UnknownFunction;
 
-		if (!module.loaded) await moduleLoaded;
+			if (!module.loaded) await moduleLoaded;
 
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		if (module.parent!.exports[message.func] !== undefined) theProperty = module.parent!.exports[message.func];
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		else if (this._internalFunctions !== undefined && this._internalFunctions[message.func as keyof InternalFunctions] !== undefined) theProperty = this._internalFunctions[message.func as keyof InternalFunctions];
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		else throw new Error(`Cannot run function in thread [${this.threadInfo}]. Function ${JSON.stringify(message.func)} is ${typeof theProperty!}. `);
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			if (module.parent!.exports[message.func] !== undefined) theProperty = module.parent!.exports[message.func];
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			else if (this._internalFunctions !== undefined && this._internalFunctions[message.func as keyof InternalFunctions] !== undefined)
+				theProperty = this._internalFunctions[message.func as keyof InternalFunctions];
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			else throw new Error(`Cannot run function in thread [${this.threadInfo}]. Function ${JSON.stringify(message.func)} is ${typeof theProperty!}. `);
 
-		if (theProperty.constructor.name === "Function") funcToExec = async (...args) => theProperty(...args);
-		else if (theProperty.constructor.name !== "AsyncFunction") funcToExec = async () => theProperty;
-		else funcToExec = theProperty;
-		this.working++;
-		await funcToExec(...message.data)
-			.then(
-				data => workerPort.postMessage({ 
-					type: "resolve",
-					data,
-					promiseKey: message.promiseKey
-				}, data?.transfers||[]),
-				data => workerPort.postMessage({ 
-					type: "reject",
-					data,
-					promiseKey: message.promiseKey
-				})
+			if (theProperty.constructor.name === "Function") funcToExec = async (...args) => theProperty(...args);
+			else if (theProperty.constructor.name !== "AsyncFunction") funcToExec = async () => theProperty;
+			else funcToExec = theProperty;
+			this.working++;
+			await funcToExec(...message.data).then(
+				(data) =>
+					workerPort.postMessage(
+						{
+							type: "resolve",
+							data,
+							promiseKey: message.promiseKey,
+						},
+						data?.transfers || []
+					),
+				(data) =>
+					workerPort.postMessage({
+						type: "reject",
+						data,
+						promiseKey: message.promiseKey,
+					})
 			);
-		this.working--;
-	}
+			this.working--;
+		};
 
 	/**
 	 * Calls a thread function.
 	 * @param {string} func Key of `function` to execute.
 	 * @param {*} data Data to give to the `function`.
 	 * @param {number|string} promiseKey Unique key used for returned promise.
-	 * 
+	 *
 	 * @returns {Promise} Promise that resolves with function result.
 	 */
-	private _callThreadFunction(func: string, data: unknown[], type="call"): Promise<unknown> {
+	private _callThreadFunction(func: string, data: unknown[], type = "call"): Promise<unknown> {
 		const promiseKey = this._promiseKey++;
 		if (this._promises[promiseKey] !== undefined) throw new Error("Duplicate promise key!");
 		// Store the resolve/reject functions in this._promises
 		const thisStack = new Error().stack;
-		const promise = new Promise((resolve, reject) => this._promises[promiseKey] = { 
-			resolve, 
-			reject: err => {
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-				if (err.stack) err.stack += "\n"+thisStack!.replace("Error\n", "");
-				reject(err);
-			}
-		});
+		const promise = new Promise(
+			(resolve, reject) =>
+				(this._promises[promiseKey] = {
+					resolve,
+					reject: (err) => {
+						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+						if (err.stack) err.stack += "\n" + thisStack!.replace("Error\n", "");
+						reject(err);
+					},
+				})
+		);
 		// Ask the thread to execute/queue the function
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		this.workerPort!.postMessage({
-			type, 
+			type,
 			func,
 			data,
-			promiseKey			
+			promiseKey,
 		});
 		// Delete the promise from the cache once its resolved
 		return promise;

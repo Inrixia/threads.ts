@@ -1,4 +1,4 @@
-import { Thread } from "./Thread"; 
+import { Thread } from "./Thread";
 // import ThreadStore from "./ThreadStore";
 import { ParentClass } from "./Parent";
 
@@ -9,7 +9,7 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 
 	private _subThreads: Array<ParentClass<M, D>>;
 	private randomID: number;
-	
+
 	public pool: boolean;
 
 	/**
@@ -42,7 +42,7 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 		for (let i = 0; i < options.count; i++)
 			this._subThreads.push(
 				new ParentClass(threadInfo, {
-					threadInfo: `${threadInfo}_${i}`,
+					threadModule: `${threadInfo}_${i}`,
 					eval: options.eval,
 					sharedArrayBuffer: this._sharedArrayBuffer,
 					data: options.data,
@@ -73,7 +73,7 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 		return this._threadSelect++;
 	}
 	set threadSelect(_value: number) {
-		throw new Error("Cannot set property \"threadSelect\" on a ParentPool.");
+		throw new Error('Cannot set property "threadSelect" on a ParentPool.');
 	}
 
 	// /**
