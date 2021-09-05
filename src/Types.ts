@@ -94,3 +94,5 @@ export type Messages = {
 };
 
 export type AnyMessage = Messages[keyof Messages];
+
+export type RequiredThread<MM extends ThreadExports, DD extends ThreadData = undefined> = Thread<MM, DD> & Omit<PromisefulModule<MM>, "require">;
