@@ -140,6 +140,12 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		if (Thread.spawnedThreads[threadName] === undefined) Thread.spawnedThreads[threadName] = [thread];
 		// else Thread.spawnedThreads[threadName].push(thread)
 	};
+	static newProxyThread = (threadName: string, exports: ThreadExports): Thread => {
+		const proxyThread = new Thread(false, { threadModule: threadName });
+		proxyThread.loadExports(exports);
+		Thread.addThread(threadName, proxyThread);
+		return proxyThread;
+	};
 
 	//
 	// General Functions
