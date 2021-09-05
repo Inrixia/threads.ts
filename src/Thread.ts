@@ -124,6 +124,10 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		});
 	}
 
+	public loadExports = (exports: ThreadExports): void => {
+		if (module.parent?.exports !== undefined) module.parent.exports = exports;
+	};
+
 	// Proxy this and the queue so any function calls are translated to thread calls
 	public queue = new Proxy({} as M, {
 		get:
@@ -189,14 +193,20 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * @returns {{MessagePort: MessagePort, workerData:{sharedArrayBuffer:SharedArrayBuffer} Transfers: [MessagePort]}} Object containing data needed to reference this thread.
 	 */
 	public _getThreadReferenceData = async (threadName: string): Promise<ThreadInfo> => {
-		if (Thread.spawnedThreads[threadName] !== undefined)
-			return (await Thread.spawnedThreads[threadName][0]._callThreadFunction("_getThreadReferenceData", [])) as ThreadInfo;
-		if (isMainThread && Thread.spawnedThreads[threadName] == undefined) {
+		const seekThread = Thread.spawnedThreads[threadName];
+		if (seekThread !== undefined) {
+			if (seekThread[0].workerPort === undefined) return seekThread[0].buildReferenceData();
+			return (await seekThread[0]._callThreadFunction("_getThreadReferenceData", [])) as ThreadInfo;
+		}
+		if (isMainThread && seekThread == undefined) {
 			throw new Error(`Thread ${threadName} has not been spawned! Spawned Threads: ${JSON.stringify(Object.keys(Thread.spawnedThreads))}`);
 		}
+		return this.buildReferenceData();
+	};
+	public buildReferenceData = async (): Promise<ThreadInfo> => {
 		const { port1, port2 } = new MessageChannel();
 		port2.on("message", this._messageHandler(port2));
-		return { workerPort: port1, workerData, transfers: [port1] };
+		return { workerPort: port1, workerData: workerData || {}, transfers: [port1] };
 	};
 
 	//
