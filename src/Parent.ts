@@ -44,10 +44,14 @@ export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> e
 					${(() => {
 						if (options.eval) return threadInfo;
 						else {
-							const rootPath = require.main?.filename || module.parent?.parent?.filename;
-							if (rootPath === undefined)
-								throw new Error(`Trying to spawn thread ${threadInfo}... But require.main.filename & module.parent?.parent?.filename is undefined!`);
-							options.threadInfo = threadInfo = path.join(path.dirname(rootPath), threadInfo).replace(/\\/g, "/");
+							try {
+								options.threadInfo = require.resolve(threadInfo);
+							} catch (err) {
+								const rootPath = require.main?.filename || module.parent?.parent?.filename;
+								if (rootPath === undefined)
+									throw new Error(`Trying to spawn thread ${threadInfo}... But require.main.filename & module.parent?.parent?.filename is undefined!`);
+								options.threadInfo = threadInfo = path.join(path.dirname(rootPath), threadInfo).replace(/\\/g, "/");
+							}
 							return `module.exports = require('${options.threadInfo}')`;
 						}
 					})()}
