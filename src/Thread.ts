@@ -22,6 +22,7 @@ const moduleLoaded: Promise<boolean> = new Promise((resolve) => {
 
 import { EventEmitter } from "events";
 import path from "path";
+import { ParentThread } from "./Parent";
 
 type FunctionHandler = (message: Messages["Call"] | Messages["Queue"]) => Promise<void>;
 
@@ -140,11 +141,11 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		if (Thread.spawnedThreads[threadName] === undefined) Thread.spawnedThreads[threadName] = [thread];
 		// else Thread.spawnedThreads[threadName].push(thread)
 	};
-	static newProxyThread = (threadName: string, exports: ThreadExports): Thread => {
+	static newProxyThread = <E extends ThreadExports>(threadName: string, exports: E): ParentThread<E> => {
 		const proxyThread = new Thread(false, { threadModule: threadName });
 		proxyThread.loadExports(exports);
 		Thread.addThread(threadName, proxyThread);
-		return proxyThread;
+		return proxyThread as ParentThread<E>;
 	};
 
 	//
