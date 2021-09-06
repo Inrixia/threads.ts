@@ -48,15 +48,11 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 
 	private _stopExecution: boolean;
 
-	public importedThreads: {
-		[key: string]: Thread<ThreadExports, ThreadData>;
-	};
+	public importedThreads: Record<string, Thread<ThreadExports, ThreadData>>;
 
 	private _internalFunctions?: InternalFunctions;
 
-	public static spawnedThreads: {
-		[key: string]: Array<Thread<ThreadExports, ThreadData>>;
-	} = {};
+	public static spawnedThreads: Record<string, Thread<ThreadExports, ThreadData>> = {};
 
 	public exited: Promise<number>;
 	private _exited: boolean;
@@ -138,7 +134,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	});
 
 	static addThread = (threadName: string, thread: Thread<ThreadExports, ThreadData> | ParentPool<ThreadExports, ThreadData>): void => {
-		if (Thread.spawnedThreads[threadName] === undefined) Thread.spawnedThreads[threadName] = [thread];
+		Thread.spawnedThreads[threadName] = thread;
 		// else Thread.spawnedThreads[threadName].push(thread)
 	};
 	static newProxyThread = <E extends ThreadExports>(threadName: string, exports: E): ParentThread<E> => {
@@ -187,7 +183,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		options?: { isPath?: true }
 	): Promise<Thread<MM, DD> & Omit<PromisefulModule<MM>, "require">> => {
 		if (options?.isPath === true) threadName = path.join(path.dirname(this.threadInfo!), threadName).replace(/\\/g, "/");
-		if (this.importedThreads[threadName] === undefined) {
+		if (this.importedThreads[threadName] === undefined && this.importedThreads[threadName]._exited === false) {
 			const threadResources = (await this._callThreadFunction("_getThreadReferenceData", [threadName])) as ThreadInfo;
 			this.importedThreads[threadName] = new Thread(threadResources.workerPort, threadResources.workerData);
 		}
@@ -202,8 +198,8 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	public _getThreadReferenceData = async (threadName: string): Promise<ThreadInfo> => {
 		const seekThread = Thread.spawnedThreads[threadName];
 		if (seekThread !== undefined) {
-			if (seekThread[0].workerPort === undefined) return seekThread[0].buildReferenceData();
-			return (await seekThread[0]._callThreadFunction("_getThreadReferenceData", [])) as ThreadInfo;
+			if (seekThread.workerPort === undefined) return seekThread.buildReferenceData();
+			return (await seekThread._callThreadFunction("_getThreadReferenceData", [])) as ThreadInfo;
 		}
 		if (isMainThread && seekThread == undefined) {
 			throw new Error(`Thread ${threadName} has not been spawned! Spawned Threads: ${JSON.stringify(Object.keys(Thread.spawnedThreads))}`);
