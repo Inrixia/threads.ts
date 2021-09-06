@@ -182,8 +182,9 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		threadName: string,
 		options?: { isPath?: true }
 	): Promise<Thread<MM, DD> & Omit<PromisefulModule<MM>, "require">> => {
+		const seekThread = this.importedThreads[threadName];
 		if (options?.isPath === true) threadName = path.join(path.dirname(this.threadInfo!), threadName).replace(/\\/g, "/");
-		if (this.importedThreads[threadName] === undefined && this.importedThreads[threadName]._exited === false) {
+		if (seekThread === undefined || ((seekThread === undefined) !== undefined && seekThread._exited === false)) {
 			const threadResources = (await this._callThreadFunction("_getThreadReferenceData", [threadName])) as ThreadInfo;
 			this.importedThreads[threadName] = new Thread(threadResources.workerPort, threadResources.workerData);
 		}
