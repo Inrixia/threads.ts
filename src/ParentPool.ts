@@ -14,7 +14,7 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 
 	/**
 	 * Spawns a collection of new `childThreads` and returns class to interface them.
-	 * @param {string} threadInfo File or stringified code for thread to run.
+	 * @param {string} threadModule File or stringified code for thread to run.
 	 * @param {Object} options Options for spawned thread.
 	 * @param {string} [options.name] Name of thread, used for imports from other threads.
 	 * @param {number} [options.count] Number of threads in ParentPool to spawn. Defaults to 2.
@@ -22,7 +22,7 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 	 * @param {SharedArrayBuffer} [options.sharedArrayBuffer] Shared array buffer to use for thread.
 	 * @param {*} [options.data] Data to be passed to thread as module.parent.thread.data
 	 */
-	constructor(threadInfo: string, options: ThreadOptions<D>) {
+	constructor(threadModule: string, options: ThreadOptions<D>) {
 		super(false, options);
 
 		if (!options.count) options.count = 4;
@@ -31,18 +31,18 @@ export default class ParentPool<M extends ThreadExports, D> extends Thread<M, D>
 		this._subThreads = [];
 		this._threadSelect = 0;
 
-		Thread.addThread(threadInfo, this);
+		Thread.addThread(threadModule, this);
 
 		this.randomID = Math.random();
-		this.threadInfo = threadInfo;
+		this.threadModule = threadModule;
 
 		this.pool = true;
 
 		// Spawn parent threads
 		for (let i = 0; i < options.count; i++)
 			this._subThreads.push(
-				new ParentClass(threadInfo, {
-					threadModule: `${threadInfo}_${i}`,
+				new ParentClass(threadModule, {
+					threadModule: `${threadModule}_${i}`,
 					eval: options.eval,
 					sharedArrayBuffer: this._sharedArrayBuffer,
 					data: options.data,

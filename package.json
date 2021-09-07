@@ -1,30 +1,30 @@
 {
-  "name": "@inrixia/threads",
-  "version": "3.4.2",
-  "description": "Node threading library",
-  "scripts": {
-    "test": "tsc && node ./dist/tests/testRunner.js",
-    "tsc": "tsc && copy /Y package.json dist && copy /Y .npmignore dist",
-    "send": "npm run tsc && cd ./dist && npm publish",
-    "send-dry": "npm run tsc && cd ./dist && npm publish --dry-run"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Inrixia/threads.git"
-  },
-  "author": "Inrix",
-  "license": "SEE LICENSE IN LICENSE",
-  "bugs": {
-    "url": "https://github.com/Inrixia/threads/issues"
-  },
-  "homepage": "https://github.com/Inrixia/threads#readme",
-  "devDependencies": {
-    "@types/jest": "^27.0.1",
-    "@types/node": "^16.7.10",
-    "@typescript-eslint/eslint-plugin": "^4.30.0",
-    "@typescript-eslint/parser": "^4.30.0",
-    "jest": "^27.1.0",
-    "ts-jest": "^27.0.5",
-    "typescript": "^4.4.2"
-  }
+	"name": "@inrixia/threads",
+	"version": "3.4.2",
+	"description": "Node threading library",
+	"scripts": {
+		"test": "tsc && node ./dist/tests/testRunner.js",
+		"tsc": "tsc && copy /Y package.json dist && copy /Y .npmignore dist",
+		"send": "npm run tsc && cd ./dist && npm publish",
+		"send-dry": "npm run tsc && cd ./dist && npm publish --dry-run"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Inrixia/threads.git"
+	},
+	"author": "Inrix",
+	"license": "SEE LICENSE IN LICENSE",
+	"bugs": {
+		"url": "https://github.com/Inrixia/threads/issues"
+	},
+	"homepage": "https://github.com/Inrixia/threads#readme",
+	"devDependencies": {
+		"@types/jest": "^27.0.1",
+		"@types/node": "^16.7.10",
+		"@typescript-eslint/eslint-plugin": "^4.30.0",
+		"@typescript-eslint/parser": "^4.30.0",
+		"jest": "^27.1.0",
+		"ts-jest": "^27.0.5",
+		"typescript": "^4.4.2"
+	}
 }

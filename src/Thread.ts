@@ -41,7 +41,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	private _threadStore: ThreadStore;
 	public workerPort?: MessagePort | Worker;
 	public data?: D;
-	public threadInfo?: string;
+	public threadModule?: string;
 
 	protected _sharedArrayBuffer: SharedArrayBuffer;
 
@@ -87,7 +87,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		this._threadStore = new ThreadStore(this._sharedArrayBuffer);
 
 		this.data = options.data;
-		this.threadInfo = options.threadModule;
+		this.threadModule = options.threadModule;
 
 		this.exited = new Promise((res) => (this._exitResolve = res));
 		this.exited.then((exitInfo) => {
@@ -135,7 +135,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 
 	static addThread = (threadName: string, thread: Thread<ThreadExports, ThreadData> | ParentPool<ThreadExports, ThreadData>): void => {
 		Thread.spawnedThreads[threadName] = thread;
-		// else Thread.spawnedThreads[threadName].push(thread)
+		thread.exited.then(() => delete Thread.spawnedThreads[threadName]);
 	};
 	static newProxyThread = <E extends ThreadExports>(threadName: string, exports: E): ParentThread<E> => {
 		const proxyThread = new Thread(false, { threadModule: threadName });
@@ -184,7 +184,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		options?: { isPath?: true }
 	): Promise<Thread<MM, DD> & Omit<PromisefulModule<MM>, "require">> => {
 		const seekThread = this.importedThreads[threadName];
-		if (options?.isPath === true) threadName = path.join(path.dirname(this.threadInfo!), threadName).replace(/\\/g, "/");
+		if (options?.isPath === true) threadName = path.join(path.dirname(this.threadModule!), threadName).replace(/\\/g, "/");
 		if (seekThread === undefined || ((seekThread === undefined) !== undefined && seekThread._exited === false)) {
 			const threadResources = (await this._callThreadFunction("_getThreadReferenceData", [threadName])) as ThreadInfo;
 			this.importedThreads[threadName] = new Thread(threadResources.workerPort, threadResources.workerData);
@@ -297,7 +297,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 				case "reject":
 					if (message.data?.stack) {
 						// Build a special stacktrace that contains all thread info
-						message.data.stack = message.data.stack.replace(/\[worker eval\]/g, this.threadInfo as string);
+						message.data.stack = message.data.stack.replace(/\[worker eval\]/g, this.threadModule as string);
 					}
 					this._promises[message.promiseKey].reject(message.data);
 					delete this._promises[message.promiseKey];
@@ -317,7 +317,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 				case "exit":
 					if (message.exitInfo.err?.stack !== undefined) {
 						// Build a special stacktrace that contains all thread info
-						message.exitInfo.err.stack = message.exitInfo.err.stack.replace(/\[worker eval\]/g, this.threadInfo as string);
+						message.exitInfo.err.stack = message.exitInfo.err.stack.replace(/\[worker eval\]/g, this.threadModule as string);
 					}
 					this.terminate();
 					this._exitResolve(message.exitInfo);
@@ -345,7 +345,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 			else if (this._internalFunctions !== undefined && this._internalFunctions[message.func as keyof InternalFunctions] !== undefined)
 				theProperty = this._internalFunctions[message.func as keyof InternalFunctions];
 			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			else throw new Error(`Cannot run function in thread [${this.threadInfo}]. Function ${JSON.stringify(message.func)} is ${typeof theProperty!}. `);
+			else throw new Error(`Cannot run function in thread [${this.threadModule}]. Function ${JSON.stringify(message.func)} is ${typeof theProperty!}. `);
 
 			if (theProperty.constructor.name === "Function") funcToExec = async (...args) => theProperty(...args);
 			else if (theProperty.constructor.name !== "AsyncFunction") funcToExec = async () => theProperty;
