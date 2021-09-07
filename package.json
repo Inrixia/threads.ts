@@ -1,6 +1,6 @@
 {
 	"name": "@inrixia/threads",
-	"version": "3.4.2",
+	"version": "3.4.3",
 	"description": "Node threading library",
 	"scripts": {
 		"test": "tsc && node ./dist/tests/testRunner.js",
