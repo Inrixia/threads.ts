@@ -30,30 +30,36 @@ export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> e
 	 */
 	constructor(threadInfo: string, options: ThreadOptions<D> = {}) {
 		super(
-			new Worker(
-				`
+			(() => {
+				let workerCode;
+				if (options.eval) workerCode = threadInfo;
+				else {
+					try {
+						options.threadModule = require.resolve(threadInfo).replace(/\\/g, "\\\\");
+					} catch (err) {
+						const rootPath = require.main?.filename || module.parent?.parent?.filename;
+						if (rootPath === undefined) {
+							throw new Error(`Trying to spawn thread ${threadInfo}... But require.main.filename & module.parent?.parent?.filename is undefined!`);
+						}
+						options.threadModule = threadInfo = path.join(path.dirname(rootPath), threadInfo).replace(/\\/g, "/");
+					}
+					workerCode = `
+						delete require.cache[require.resolve('${options.threadModule}')];
+						module.exports = require('${options.threadModule}');
+					`;
+				}
+				return new Worker(
+					`
 					const { parentPort, workerData } = require('worker_threads');
 					process.on('exit', code => parentPort.postMessage({ type: "exit", exitInfo: { code } }));
 					process.on('uncaughtException', err => parentPort.postMessage({ type: "exit", exitInfo: { err } }));
 					process.on('unhandledRejection', err => parentPort.postMessage({ type: "exit", exitInfo: { err } }));
 					module.thread = new (require('${path.join(__dirname, "./Thread.js").replace(/\\/g, "\\\\")}').Thread)(parentPort, workerData);
-					${(() => {
-						if (options.eval) return threadInfo;
-						else {
-							try {
-								options.threadModule = require.resolve(threadInfo).replace(/\\/g, "\\\\");
-							} catch (err) {
-								const rootPath = require.main?.filename || module.parent?.parent?.filename;
-								if (rootPath === undefined)
-									throw new Error(`Trying to spawn thread ${threadInfo}... But require.main.filename & module.parent?.parent?.filename is undefined!`);
-								options.threadModule = threadInfo = path.join(path.dirname(rootPath), threadInfo).replace(/\\/g, "/");
-							}
-							return `module.exports = require('${options.threadModule}')`;
-						}
-					})()}
+					${workerCode}
 				`,
-				{ workerData: options, eval: true }
-			),
+					{ workerData: options, eval: true }
+				);
+			})(),
 			options
 		);
 		Thread.addThread(threadInfo, this);
