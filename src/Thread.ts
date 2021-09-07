@@ -50,28 +50,30 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 			resolve: (value: unknown) => void;
 			reject: (reason: Error) => void;
 		};
-	};
-	private _promiseKey: number;
+	} = {};
+	private _promiseKey: number = 0;
 	private _functionQueue: {
 		functionHandler: FunctionHandler;
 		message: Messages["Call"] | Messages["Queue"];
-	}[];
+	}[] = [];
 
-	private _stopExecution: boolean;
+	private _stopExecution: boolean = false;
 
-	public importedThreads: Record<string, Thread<ThreadExports, ThreadData>>;
+	public importedThreads: Record<string, Thread<ThreadExports, ThreadData>> = {};
 
 	private _internalFunctions?: InternalFunctions;
 
 	public static spawnedThreads: Record<string, Thread<ThreadExports, ThreadData>> = {};
 
 	public exited: Promise<ThreadExitInfo>;
-	private _exited: boolean;
+	private _exited: boolean = false;
 	private _exitResolve!: (info: ThreadExitInfo) => void;
 
 	public get running(): boolean {
 		return !this._exited;
 	}
+
+	private proxyPorts: MessagePort[] = [];
 
 	/**
 	 * Returns a promise containing a constructed `Thread`.
@@ -83,18 +85,10 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		super();
 		this._sharedArrayBuffer = options.sharedArrayBuffer || new SharedArrayBuffer(16);
 		this._threadStore = new ThreadStore(this._sharedArrayBuffer);
-		this.importedThreads = {};
 
 		this.data = options.data;
 		this.threadInfo = options.threadModule;
 
-		this._promises = {};
-		this._promiseKey = 0;
-		this._functionQueue = [];
-
-		this._stopExecution = false;
-
-		this._exited = false;
 		this.exited = new Promise((res) => (this._exitResolve = res));
 		this.exited.then((exitInfo) => {
 			this._exited = true;
@@ -166,6 +160,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	public emit = (eventName: string, ...args: Array<unknown>): boolean => {
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		this.workerPort!.postMessage({ type: "event", eventName, args });
+		for (const proxyPort of this.proxyPorts) proxyPort.postMessage({ type: "event", eventName, args });
 		return super.emit(eventName, ...args);
 	};
 
@@ -215,6 +210,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	};
 	public buildReferenceData = async (): Promise<ThreadInfo> => {
 		const { port1, port2 } = new MessageChannel();
+		this.proxyPorts.push(port2);
 		port2.on("message", this._messageHandler(port2));
 		return { workerPort: port1, workerData: workerData || {}, transfers: [port1] };
 	};
