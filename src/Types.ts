@@ -30,6 +30,8 @@ export type ThreadExports = {
 
 export type ThreadData = undefined | unknown;
 
+export type ThreadExitInfo = { code?: number; err?: Error };
+
 export type ThreadModule<E extends ThreadExports = ThreadExports, D = unknown> = NodeJS.Module & {
 	thread: Thread<E, D>;
 	exports: E;
@@ -83,13 +85,9 @@ export type Messages = {
 		data: Array<unknown>;
 		promiseKey: number;
 	};
-	UncaughtErr: {
-		type: "uncaughtErr";
-		err: Error;
-	};
 	Exit: {
 		type: "exit";
-		code: number;
+		exitInfo: ThreadExitInfo;
 	};
 };
 

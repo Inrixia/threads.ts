@@ -33,13 +33,9 @@ export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> e
 			new Worker(
 				`
 					const { parentPort, workerData } = require('worker_threads');
-					const onErr = err => {
-						parentPort.postMessage({ type: "uncaughtErr", err })
-						process.exit()
-					}
-					process.on('exit', code => parentPort.postMessage({ type: "exit", code }))
-					process.on('uncaughtException', onErr);
-					process.on('unhandledRejection', onErr);
+					process.on('exit', code => parentPort.postMessage({ type: "exit", exitInfo: { code } }));
+					process.on('uncaughtException', err => parentPort.postMessage({ type: "exit", exitInfo: { err } }));
+					process.on('unhandledRejection', err => parentPort.postMessage({ type: "exit", exitInfo: { err } }));
 					module.thread = new (require('${path.join(__dirname, "./Thread.js").replace(/\\/g, "\\\\")}').Thread)(parentPort, workerData);
 					${(() => {
 						if (options.eval) return threadInfo;

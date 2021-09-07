@@ -2,7 +2,18 @@ import { isMainThread, workerData, MessageChannel, MessagePort, Worker } from "w
 import { ThreadStore } from "./ThreadStore";
 import type ParentPool from "./ParentPool";
 
-import type { UnknownFunction, ThreadInfo, ThreadOptions, Messages, ThreadExports, ThreadData, AnyMessage, PromisefulModule, InternalFunctions } from "./Types";
+import type {
+	UnknownFunction,
+	ThreadInfo,
+	ThreadOptions,
+	Messages,
+	ThreadExports,
+	ThreadData,
+	AnyMessage,
+	PromisefulModule,
+	InternalFunctions,
+	ThreadExitInfo,
+} from "./Types";
 
 // Wrap around the `module.loaded` param so we only run functions after this module has finished loading
 let _moduleLoaded = false;
@@ -54,10 +65,13 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 
 	public static spawnedThreads: Record<string, Thread<ThreadExports, ThreadData>> = {};
 
-	public exited: Promise<number>;
+	public exited: Promise<ThreadExitInfo>;
 	private _exited: boolean;
-	private _exitResolve!: (code: number) => void;
-	private _exitReject!: (err: Error) => void;
+	private _exitResolve!: (info: ThreadExitInfo) => void;
+
+	public get running(): boolean {
+		return !this._exited;
+	}
 
 	/**
 	 * Returns a promise containing a constructed `Thread`.
@@ -81,20 +95,12 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		this._stopExecution = false;
 
 		this._exited = false;
-		this.exited = new Promise((resolve, reject) => {
-			this._exitResolve = resolve;
-			this._exitReject = reject;
-		});
-		this.exited.then((exitCode) => {
+		this.exited = new Promise((res) => (this._exitResolve = res));
+		this.exited.then((exitInfo) => {
 			this._exited = true;
 			for (const { reject } of Object.values(this._promises)) {
-				reject(new Error(`Worker exited with code ${exitCode}`));
-			}
-		});
-		this.exited.catch((error) => {
-			this._exited = true;
-			for (const { reject } of Object.values(this._promises)) {
-				reject(error);
+				if (exitInfo.err !== undefined) reject(exitInfo.err);
+				else reject(new Error(`Worker exited with code ${exitInfo.code}`));
 			}
 		});
 
@@ -114,7 +120,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		return new Proxy(this, {
 			get: (target, key: string, receiver) => {
 				if ((target as unknown as { [key: string]: unknown })[key] === undefined && key !== "then") {
-					if (this._exited === true) throw new Error("Thread has exited. Check thread.exited for more info...");
+					if (!this.running) throw new Error("Thread has exited. Check thread.exited for more info...");
 					return (...args: unknown[]) => this._callThreadFunction(key, args);
 				} else return Reflect.get(target, key, receiver);
 			},
@@ -150,7 +156,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	public terminate = async (): Promise<number> => {
 		if (this.workerPort === undefined) throw new Error("Worker does not exist!");
 		const exitCode = await (this.workerPort as Worker).terminate();
-		this._exitResolve(exitCode);
+		this._exitResolve({ code: exitCode });
 		return exitCode;
 	};
 
@@ -312,15 +318,13 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 						} as Messages["Reject"])
 					);
 					break;
-				case "uncaughtErr":
-					if (message.err.stack) {
-						// Build a special stacktrace that contains all thread info
-						message.err.stack = message.err.stack.replace(/\[worker eval\]/g, this.threadInfo as string);
-					}
-					this._exitReject(message.err);
-					break;
 				case "exit":
-					this._exitResolve(message.code);
+					if (message.exitInfo.err?.stack !== undefined) {
+						// Build a special stacktrace that contains all thread info
+						message.exitInfo.err.stack = message.exitInfo.err.stack.replace(/\[worker eval\]/g, this.threadInfo as string);
+					}
+					this.terminate();
+					this._exitResolve(message.exitInfo);
 					break;
 			}
 		};
