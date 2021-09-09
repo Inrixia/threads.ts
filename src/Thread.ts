@@ -297,7 +297,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 				case "reject":
 					if (message.data?.stack) {
 						// Build a special stacktrace that contains all thread info
-						message.data.stack = message.data.stack.replace(/\[worker eval\]/g, this.threadModule as string);
+						message.data.stack = message.data.stack.replace(/.*\[worker eval\]/g, this.threadModule as string);
 					}
 					this._promises[message.promiseKey].reject(message.data);
 					delete this._promises[message.promiseKey];
