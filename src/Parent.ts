@@ -8,7 +8,7 @@ import { ThreadExports, ThreadOptions, PromisefulModule } from "./Types";
 
 /**
  * Spawns a new `childThread` and returns a class to interface with it.
- * @param {string} threadInfo File, Module name or stringified code for thread to run.
+ * @param {string} threadModule File, Module name or stringified code for thread to run.
  * @param {Object} options Options for spawned thread.
  * @param {string} [options.name] Name of thread, used for imports from other threads.
  * @param {boolean} [options.eval] Indicates if `threadFile` is stringified code or a file. If true `options.threadName` must be given.
@@ -16,32 +16,32 @@ import { ThreadExports, ThreadOptions, PromisefulModule } from "./Types";
  * @param {*} [options.data] Data to be passed to thread as module.parent.thread.data
  */
 export const Parent = <M extends ThreadExports, D = unknown>(
-	...args: [threadInfo: string, options?: ThreadOptions<D>]
+	...args: [threadModule: string, options?: ThreadOptions<D>]
 ): PromisefulModule<M> & ParentClass<M, D> => new ParentClass(...args) as unknown as PromisefulModule<M> & ParentClass<M, D>;
 export type ParentThread<M extends ThreadExports, D = unknown> = PromisefulModule<M> & ParentClass<M, D>;
 export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> extends Thread<M, D> {
 	/**
 	 * Spawns a new `childThread` and returns a class to interface with it.
-	 * @param {string} threadInfo File, Module name or stringified code for thread to run.
+	 * @param {string} threadModule File, Module name or stringified code for thread to run.
 	 * @param {Object} options Options for spawned thread.
 	 * @param {boolean} [options.eval] Indicates if `threadFile` is stringified code or a file. If true `options.threadName` must be given.
 	 * @param {SharedArrayBuffer} [options.sharedArrayBuffer] Shared array buffer to use for thread.
 	 * @param {*} [options.data] Data to be passed to thread as module.parent.thread.data
 	 */
-	constructor(threadInfo: string, options: ThreadOptions<D> = {}) {
+	constructor(threadModule: string, options: ThreadOptions<D> = {}) {
 		super(
 			(() => {
 				let workerCode;
-				if (options.eval) workerCode = threadInfo;
+				if (options.eval) workerCode = threadModule;
 				else {
 					try {
-						options.threadModule = require.resolve(threadInfo).replace(/\\/g, "\\\\");
+						options.threadModule = require.resolve(threadModule).replace(/\\/g, "\\\\");
 					} catch (err) {
 						const rootPath = require.main?.filename || module.parent?.parent?.filename;
 						if (rootPath === undefined) {
-							throw new Error(`Trying to spawn thread ${threadInfo}... But require.main.filename & module.parent?.parent?.filename is undefined!`);
+							throw new Error(`Trying to spawn thread ${threadModule}... But require.main.filename & module.parent?.parent?.filename is undefined!`);
 						}
-						options.threadModule = threadInfo = path.join(path.dirname(rootPath), threadInfo).replace(/\\/g, "/");
+						options.threadModule = threadModule = path.join(path.dirname(rootPath), threadModule).replace(/\\/g, "/");
 					}
 					workerCode = `
 						delete require.cache[require.resolve('${options.threadModule}')];
@@ -62,6 +62,6 @@ export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> e
 			})(),
 			options
 		);
-		Thread.addThread(threadInfo, this);
+		Thread.addThread(threadModule, this);
 	}
 }

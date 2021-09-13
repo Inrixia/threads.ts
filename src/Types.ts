@@ -47,7 +47,7 @@ export type ThreadOptions<T> = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type UnknownFunction = (...args: any[]) => Promise<any>;
 
-export type ThreadInfo = {
+export type threadModule = {
 	workerPort: MessagePort;
 	workerData: {
 		sharedArrayBuffer: SharedArrayBuffer;

@@ -4,7 +4,7 @@ import type ParentPool from "./ParentPool";
 
 import type {
 	UnknownFunction,
-	ThreadInfo,
+	threadModule,
 	ThreadOptions,
 	Messages,
 	ThreadExports,
@@ -184,12 +184,14 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		options?: { isPath?: true }
 	): Promise<Thread<MM, DD> & Omit<PromisefulModule<MM>, "require">> => {
 		const seekThread = this.importedThreads[threadName];
-		if (options?.isPath === true) threadName = path.join(path.dirname(this.threadModule!), threadName).replace(/\\/g, "/");
-		if (seekThread === undefined || ((seekThread === undefined) !== undefined && seekThread._exited === false)) {
-			const threadResources = (await this._callThreadFunction("_getThreadReferenceData", [threadName])) as ThreadInfo;
-			this.importedThreads[threadName] = new Thread(threadResources.workerPort, threadResources.workerData);
+		if (seekThread !== undefined) {
+			if (seekThread._exited) delete this.importedThreads[threadName];
+			else return this.importedThreads[threadName] as unknown as PromisefulModule<MM> & Thread<MM, DD>;
 		}
-		return this.importedThreads[threadName] as unknown as PromisefulModule<MM> & Thread<MM, DD>;
+		if (options?.isPath === true) threadName = path.join(path.dirname(this.threadModule!), threadName).replace(/\\/g, "/");
+		const threadResources = (await this._callThreadFunction("_getThreadReferenceData", [threadName])) as threadModule;
+		return (this.importedThreads[threadName] = new Thread(threadResources.workerPort, threadResources.workerData) as unknown as PromisefulModule<MM> &
+			Thread<MM, DD>);
 	};
 
 	/**
@@ -197,18 +199,18 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	 * Returns the new `workerPort` and this threads `workerData`.
 	 * @returns {{MessagePort: MessagePort, workerData:{sharedArrayBuffer:SharedArrayBuffer} Transfers: [MessagePort]}} Object containing data needed to reference this thread.
 	 */
-	public _getThreadReferenceData = async (threadName: string): Promise<ThreadInfo> => {
+	public _getThreadReferenceData = async (threadName: string): Promise<threadModule> => {
 		const seekThread = Thread.spawnedThreads[threadName];
 		if (seekThread !== undefined) {
 			if (seekThread.workerPort === undefined) return seekThread.buildReferenceData();
-			return (await seekThread._callThreadFunction("_getThreadReferenceData", [])) as ThreadInfo;
+			return (await seekThread._callThreadFunction("_getThreadReferenceData", [])) as threadModule;
 		}
 		if (isMainThread && seekThread == undefined) {
 			throw new Error(`Thread ${threadName} has not been spawned! Spawned Threads: ${JSON.stringify(Object.keys(Thread.spawnedThreads))}`);
 		}
 		return this.buildReferenceData();
 	};
-	public buildReferenceData = async (): Promise<ThreadInfo> => {
+	public buildReferenceData = async (): Promise<threadModule> => {
 		const { port1, port2 } = new MessageChannel();
 		this.proxyPorts.push(port2);
 		port2.on("message", this._messageHandler(port2));
