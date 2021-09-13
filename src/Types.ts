@@ -32,9 +32,8 @@ export type ThreadData = undefined | unknown;
 
 export type ThreadExitInfo = { code?: number; err?: Error };
 
-export type ThreadModule<E extends ThreadExports = ThreadExports, D = unknown> = NodeJS.Module & {
-	thread: Thread<E, D>;
-	exports: E;
+export type ThreadModule<Data = unknown> = NodeJS.Module & {
+	thread: Thread<{}, Data>;
 };
 
 export type ThreadOptions<T> = {
