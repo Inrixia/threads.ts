@@ -16,7 +16,7 @@ import { ThreadExports, ThreadOptions, PromisefulModule } from "./Types";
  * @param {*} [options.data] Data to be passed to thread as module.parent.thread.data
  */
 export const Parent = <M extends ThreadExports, D = unknown>(
-	...args: [threadModule: string, options?: ThreadOptions<D>]
+	...args: [threadModule: string, options?: ThreadOptions<D>, workerOptions?: WorkerOptions]
 ): PromisefulModule<M> & ParentClass<M, D> => new ParentClass(...args) as unknown as PromisefulModule<M> & ParentClass<M, D>;
 export type ParentThread<M extends ThreadExports, D = unknown> = PromisefulModule<M> & ParentClass<M, D>;
 export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> extends Thread<M, D> {
