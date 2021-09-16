@@ -1,5 +1,5 @@
 /* eslint-disable indent */
-import { Worker } from "worker_threads";
+import { Worker, WorkerOptions } from "worker_threads";
 import path from "path";
 
 import { Thread } from "./Thread";
