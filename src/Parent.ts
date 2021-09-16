@@ -28,7 +28,7 @@ export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> e
 	 * @param {SharedArrayBuffer} [options.sharedArrayBuffer] Shared array buffer to use for thread.
 	 * @param {*} [options.data] Data to be passed to thread as module.parent.thread.data
 	 */
-	constructor(threadModule: string, options: ThreadOptions<D> = {}) {
+	constructor(threadModule: string, options: ThreadOptions<D> = {}, workerOptions?: WorkerOptions) {
 		super(
 			(() => {
 				let workerCode;
@@ -57,7 +57,7 @@ export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> e
 					module.thread = new (require('${path.join(__dirname, "./Thread.js").replace(/\\/g, "\\\\")}').Thread)(parentPort, workerData);
 					${workerCode}
 				`,
-					{ workerData: options, eval: true }
+					{ ...workerOptions, workerData: options, eval: true }
 				);
 			})(),
 			options
