@@ -1,6 +1,7 @@
 import { isMainThread, workerData, MessageChannel, MessagePort, Worker } from "worker_threads";
+import { DefaultListener, ListenerSignature, TypedEmitter } from "tiny-typed-emitter";
 import { ThreadStore } from "./ThreadStore";
-import type ParentPool from "./ParentPool";
+// import type ParentPool from "./ParentPool";
 
 import type {
 	UnknownFunction,
@@ -37,9 +38,13 @@ import { ParentThread } from "./Parent";
 
 type FunctionHandler = (message: Messages["Call"] | Messages["Queue"]) => Promise<void>;
 
-export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadData = undefined> extends EventEmitter {
+export class Thread<
+	M extends ThreadExports = ThreadExports,
+	D extends ThreadData = undefined,
+	E extends ListenerSignature<E> = DefaultListener
+> extends TypedEmitter<E> {
 	private _threadStore: ThreadStore;
-	public workerPort?: MessagePort | Worker;
+	public worker?: MessagePort | Worker;
 	public data?: D;
 	public threadModule?: string;
 
@@ -77,11 +82,11 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 
 	/**
 	 * Returns a promise containing a constructed `Thread`.
-	 * @param {MessagePort} workerPort Port the thread will communicate on
+	 * @param {MessagePort} worker Port the thread will communicate on
 	 * @param {Object} options Data passed to thread on start
 	 * @param {SharedArrayBuffer} options.sharedArrayBuffer Shared memory containing thread parameters
 	 */
-	constructor(workerPort: Worker | MessagePort | false, options: ThreadOptions<D>) {
+	constructor(worker: Worker | MessagePort | false, options: ThreadOptions<D>) {
 		super();
 		this._sharedArrayBuffer = options.sharedArrayBuffer || new SharedArrayBuffer(16);
 		this._threadStore = new ThreadStore(this._sharedArrayBuffer);
@@ -98,8 +103,8 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 			}
 		});
 
-		if (workerPort === false) return this;
-		this.workerPort = workerPort;
+		if (worker === false) return this;
+		this.worker = worker;
 
 		this._internalFunctions = {
 			runQueue: this._runQueue,
@@ -109,7 +114,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		};
 
 		// Create an eventlistener for handling thread events
-		this.workerPort.on("message", this._messageHandler(this.workerPort));
+		this.worker.on("message", this._messageHandler(this.worker));
 
 		return new Proxy(this, {
 			get: (target, key: string, receiver) => {
@@ -133,7 +138,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 				this._callThreadFunction(key, args, "queue"),
 	});
 
-	static addThread = (threadName: string, thread: Thread<ThreadExports, ThreadData> | ParentPool<ThreadExports, ThreadData>): void => {
+	static addThread = (threadName: string, thread: Thread<ThreadExports, ThreadData>): void => {
 		Thread.spawnedThreads[threadName] = thread;
 		thread.exited.then(() => delete Thread.spawnedThreads[threadName]);
 	};
@@ -148,8 +153,8 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	// General Functions
 	//
 	public terminate = async (): Promise<number> => {
-		if (this.workerPort === undefined) throw new Error("Worker does not exist!");
-		const exitCode = await (this.workerPort as Worker).terminate();
+		if (this.worker === undefined) throw new Error("Worker does not exist!");
+		const exitCode = await (this.worker as Worker).terminate();
 		this._exitResolve({ code: exitCode });
 		return exitCode;
 	};
@@ -157,9 +162,9 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	//
 	// Event Functions
 	//
-	public emit = (eventName: string, ...args: Array<unknown>): boolean => {
+	public emit = <U extends keyof E>(eventName: U, ...args: Parameters<E[U]>): boolean => {
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		this.workerPort!.postMessage({ type: "event", eventName, args });
+		this.worker!.postMessage({ type: "event", eventName, args });
 		for (const proxyPort of this.proxyPorts) proxyPort.postMessage({ type: "event", eventName, args });
 		return super.emit(eventName, ...args);
 	};
@@ -202,7 +207,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 	public _getThreadReferenceData = async (threadName: string): Promise<threadModule> => {
 		const seekThread = Thread.spawnedThreads[threadName];
 		if (seekThread !== undefined) {
-			if (seekThread.workerPort === undefined) return seekThread.buildReferenceData();
+			if (seekThread.worker === undefined) return seekThread.buildReferenceData();
 			return (await seekThread._callThreadFunction("_getThreadReferenceData", [])) as threadModule;
 		}
 		if (isMainThread && seekThread == undefined) {
@@ -305,7 +310,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 					delete this._promises[message.promiseKey];
 					break;
 				case "event":
-					super.emit(message.eventName, ...message.args);
+					super.emit(<keyof E>message.eventName, ...(<Parameters<E[keyof E]>>message.args));
 					break;
 				case "queue":
 					this._queueSelfFunction(message, functionHandler).catch((data: Error) =>
@@ -399,7 +404,7 @@ export class Thread<M extends ThreadExports = ThreadExports, D extends ThreadDat
 		);
 		// Ask the thread to execute/queue the function
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		this.workerPort!.postMessage({
+		this.worker!.postMessage({
 			type,
 			func,
 			data,

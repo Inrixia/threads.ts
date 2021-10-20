@@ -1,5 +1,7 @@
 /* eslint-disable indent */
+import { DefaultListener, ListenerSignature } from "tiny-typed-emitter";
 import { Worker, WorkerOptions } from "worker_threads";
+
 import path from "path";
 
 import { Thread } from "./Thread";
@@ -15,11 +17,13 @@ import { ThreadExports, ThreadOptions, PromisefulModule } from "./Types";
  * @param {SharedArrayBuffer} [options.sharedArrayBuffer] Shared array buffer to use for thread.
  * @param {*} [options.data] Data to be passed to thread as module.parent.thread.data
  */
-export const Parent = <M extends ThreadExports, D = unknown>(
+export const Parent = <M extends ThreadExports, D = unknown, E extends ListenerSignature<E> = DefaultListener>(
 	...args: [threadModule: string, options?: ThreadOptions<D>, workerOptions?: WorkerOptions]
-): PromisefulModule<M> & ParentClass<M, D> => new ParentClass(...args) as unknown as PromisefulModule<M> & ParentClass<M, D>;
-export type ParentThread<M extends ThreadExports, D = unknown> = PromisefulModule<M> & ParentClass<M, D>;
-export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> extends Thread<M, D> {
+): ParentThread<M, D, E> => <ParentThread<M, D, E>>new ParentClass(...args);
+
+export type ParentThread<M extends ThreadExports = ThreadExports, D = unknown, E extends ListenerSignature<E> = DefaultListener> = PromisefulModule<M> &
+	ParentClass<M, D, E>;
+export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown, E extends ListenerSignature<E> = DefaultListener> extends Thread<M, D, E> {
 	/**
 	 * Spawns a new `childThread` and returns a class to interface with it.
 	 * @param {string} threadModule File, Module name or stringified code for thread to run.
@@ -62,6 +66,6 @@ export class ParentClass<M extends ThreadExports = ThreadExports, D = unknown> e
 			})(),
 			options
 		);
-		Thread.addThread(threadModule, this);
+		Thread.addThread(threadModule, <ParentThread>(<unknown>this));
 	}
 }

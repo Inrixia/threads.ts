@@ -39,7 +39,7 @@ test("Requires and runs a function in one thread from another", () => {
 // });
 
 test("Emits a event to a thread and expects another emitted back with the same arguments", () => {
-	const child = Parent<typeof Child>("./lib/child.js");
+	const child = Parent<typeof Child, unknown, Child.ParentEvents>("./lib/child.js");
 	const result = new Promise((res) => {
 		child.on("eventFromChild", (...args) => res(JSON.stringify(args)));
 		child.emit("eventFromParent", "Hello World", [1, 2, 3]);

@@ -4,7 +4,12 @@ import type { ThreadModule } from "../../";
 import type * as Smol from "./smol";
 import type * as Child from "./child";
 
-const thread = (module.parent as ThreadModule).thread;
+export type ParentEvents = {
+	eventFromParent: (hello: "Hello World", values: [1, 2, 3]) => void;
+	eventFromChild: (hello: "Hello World", values: [1, 2, 3]) => void;
+};
+
+const thread = (module.parent as ThreadModule<unknown, ParentEvents>).thread;
 
 thread.on("eventFromParent", (...args) => thread.emit("eventFromChild", ...args));
 

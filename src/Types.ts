@@ -1,3 +1,4 @@
+import { DefaultListener, ListenerSignature } from "tiny-typed-emitter";
 import { MessagePort } from "worker_threads";
 
 import type { Thread } from "./Thread";
@@ -21,8 +22,7 @@ export type PromisefulModule<M extends ThreadExports> = {
 			? (...args: UnsafeParameters<M[K]>) => UnsafeReturnType<M[K]>
 			: (...args: UnsafeParameters<M[K]>) => Promise<UnsafeReturnType<M[K]>>
 		: () => Promise<M[K]>;
-} &
-	InternalFunctions;
+} & InternalFunctions;
 
 export type ThreadExports = {
 	[key: string]: unknown;
@@ -32,8 +32,8 @@ export type ThreadData = undefined | unknown;
 
 export type ThreadExitInfo = { code?: number; err?: Error };
 
-export type ThreadModule<Data = unknown> = NodeJS.Module & {
-	thread: Thread<{}, Data>;
+export type ThreadModule<Data = unknown, E extends ListenerSignature<E> = DefaultListener> = NodeJS.Module & {
+	thread: Thread<{}, Data, E>;
 };
 
 export type ThreadOptions<T> = {
