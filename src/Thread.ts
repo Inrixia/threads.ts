@@ -184,19 +184,19 @@ export class Thread<
 	 * const helloWorldThread = thisThread.require('helloWorld')
 	 * thisThread.threads['helloWorld'] // Also set to the thread reference for non async access
 	 */
-	public require = async <MM extends ThreadExports, DD extends ThreadData = undefined>(
+	public require = async <MM extends ThreadExports, DD extends ThreadData = undefined, EE extends ListenerSignature<EE> = DefaultListener>(
 		threadName: string,
 		options?: { isPath?: true }
-	): Promise<Thread<MM, DD> & Omit<PromisefulModule<MM>, "require">> => {
+	): Promise<Thread<MM, DD, EE> & Omit<PromisefulModule<MM>, "require">> => {
+		type RequiredThread = PromisefulModule<MM> & Thread<MM, DD, EE>;
 		const seekThread = this.importedThreads[threadName];
 		if (seekThread !== undefined) {
 			if (seekThread._exited) delete this.importedThreads[threadName];
-			else return this.importedThreads[threadName] as unknown as PromisefulModule<MM> & Thread<MM, DD>;
+			else return <RequiredThread>(<unknown>this.importedThreads[threadName]);
 		}
 		if (options?.isPath === true) threadName = path.join(path.dirname(this.threadModule!), threadName).replace(/\\/g, "/");
-		const threadResources = (await this._callThreadFunction("_getThreadReferenceData", [threadName])) as threadModule;
-		return (this.importedThreads[threadName] = new Thread(threadResources.workerPort, threadResources.workerData) as unknown as PromisefulModule<MM> &
-			Thread<MM, DD>);
+		const threadResources = <threadModule>await this._callThreadFunction("_getThreadReferenceData", [threadName]);
+		return <RequiredThread>(<unknown>(this.importedThreads[threadName] = new Thread(threadResources.workerPort, threadResources.workerData)));
 	};
 
 	/**
